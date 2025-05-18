@@ -32,31 +32,31 @@ export function Layout({ children, requireAuth = true }: LayoutProps) {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
-      <nav className="bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700">
+    <div className="min-h-screen bg-gray-50">
+      <nav className="bg-white border-b border-gray-200">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between h-16">
             <div className="flex">
               <div className="flex-shrink-0 flex items-center">
-                <Link href="/" className="text-xl font-bold text-gray-800 dark:text-white">
+                <Link href="/" className="text-xl font-bold text-gray-800">
                   FitTrack
                 </Link>
               </div>
               {user && (
                 <div className="hidden sm:ml-6 sm:flex sm:space-x-8">
-                  <Link href="/" className={`${router.pathname === '/' ? 'border-indigo-500' : 'border-transparent'} inline-flex items-center px-1 pt-1 border-b-2 text-sm font-medium`}>
+                  <Link href="/" className={`${router.pathname === '/' ? 'border-indigo-500' : 'border-transparent'} inline-flex items-center px-1 pt-1 border-b-2 text-sm font-medium text-gray-900`}>
                     Dashboard
                   </Link>
-                  <Link href="/diary" className={`${router.pathname === '/diary' ? 'border-indigo-500' : 'border-transparent'} inline-flex items-center px-1 pt-1 border-b-2 text-sm font-medium`}>
+                  <Link href="/diary" className={`${router.pathname === '/diary' ? 'border-indigo-500' : 'border-transparent'} inline-flex items-center px-1 pt-1 border-b-2 text-sm font-medium text-gray-900`}>
                     Workout Diary
                   </Link>
-                  <Link href="/macros" className={`${router.pathname === '/macros' ? 'border-indigo-500' : 'border-transparent'} inline-flex items-center px-1 pt-1 border-b-2 text-sm font-medium`}>
+                  <Link href="/macros" className={`${router.pathname === '/macros' ? 'border-indigo-500' : 'border-transparent'} inline-flex items-center px-1 pt-1 border-b-2 text-sm font-medium text-gray-900`}>
                     Macros
                   </Link>
-                  <Link href="/weight" className={`${router.pathname === '/weight' ? 'border-indigo-500' : 'border-transparent'} inline-flex items-center px-1 pt-1 border-b-2 text-sm font-medium`}>
+                  <Link href="/weight" className={`${router.pathname === '/weight' ? 'border-indigo-500' : 'border-transparent'} inline-flex items-center px-1 pt-1 border-b-2 text-sm font-medium text-gray-900`}>
                     Weight
                   </Link>
-                  <Link href="/analytics" className={`${router.pathname === '/analytics' ? 'border-indigo-500' : 'border-transparent'} inline-flex items-center px-1 pt-1 border-b-2 text-sm font-medium`}>
+                  <Link href="/analytics" className={`${router.pathname === '/analytics' ? 'border-indigo-500' : 'border-transparent'} inline-flex items-center px-1 pt-1 border-b-2 text-sm font-medium text-gray-900`}>
                     Analytics
                   </Link>
                 </div>
