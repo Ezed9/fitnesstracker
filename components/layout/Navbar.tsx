@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { BellIcon, MenuAlt2Icon, XIcon } from '@heroicons/react/outline'
-import LogoutButton from '../LogoutButton'
+import { LogoutButton } from '../auth/LogoutButton'
 
 export default function Navbar() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)

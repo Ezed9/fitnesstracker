@@ -1,23 +1,35 @@
 import { useRouter } from 'next/router'
 import { useEffect, useState } from 'react'
 import { createClientComponentClient } from '@supabase/auth-helpers-nextjs'
-import type { Subscription } from '@supabase/supabase-js'
+import type { Subscription, Session } from '@supabase/supabase-js'
 
 export default function AuthWrapper({ children }: { children: React.ReactNode }) {
   const [loading, setLoading] = useState(true)
+  const [session, setSession] = useState<Session | null>(null)
   const [error, setError] = useState<string | null>(null)
   const router = useRouter()
   const supabase = createClientComponentClient()
-  const isAuthPage = ['/login', '/register', '/auth/callback'].includes(router.pathname)
+  
+  // List of public routes that don't require authentication
+  const publicRoutes = [
+    '/login', 
+    '/signup', 
+    '/auth/callback', 
+    '/auth/confirm-email',
+    '/auth/forgot-password',
+    '/auth/reset-password'
+  ]
+  
+  const isAuthPage = publicRoutes.includes(router.pathname)
 
   useEffect(() => {
     let isMounted = true
     let subscription: Subscription | null = null
 
-    const checkAuth = async () => {
+    const getSession = async () => {
       try {
         const { 
-          data: { session }, 
+          data: { session: currentSession }, 
           error: sessionError 
         } = await supabase.auth.getSession()
         
@@ -26,16 +38,18 @@ export default function AuthWrapper({ children }: { children: React.ReactNode })
         if (sessionError) {
           throw sessionError
         }
-        
-        if (!session && !isAuthPage) {
-          // If no session and not on an auth page, redirect to login
+
+        setSession(currentSession)
+
+        if (!currentSession && !isAuthPage) {
+          // If no session and not on a public page, redirect to login
           router.push('/login')
           return
         }
 
-        if (session && isAuthPage) {
-          // If session exists and user is on an auth page, redirect to dashboard
-          router.push('/')
+        if (currentSession && isAuthPage && !router.pathname.startsWith('/auth/confirm-email')) {
+          // If session exists and user is on an auth page (except email confirmation), redirect to dashboard
+          router.push('/dashboard')
           return
         }
 
@@ -50,21 +64,22 @@ export default function AuthWrapper({ children }: { children: React.ReactNode })
     }
 
     // Set up auth state change listener
-    const { data } = supabase.auth.onAuthStateChange((event) => {
+    const { data } = supabase.auth.onAuthStateChange((event, currentSession) => {
       if (!isMounted) return
+      
+      setSession(currentSession)
       
       if (event === 'SIGNED_OUT' && !isAuthPage) {
         router.push('/login')
-      } else if (event === 'SIGNED_IN' && isAuthPage) {
-        router.push('/')
+      } else if (event === 'SIGNED_IN' && isAuthPage && !router.pathname.startsWith('/auth/confirm-email')) {
+        router.push('/dashboard')
       }
     })
     
     // Store the subscription for cleanup
     subscription = data.subscription
 
-    // Initial auth check
-    checkAuth()
+    getSession()
 
     // Cleanup function
     return () => {
@@ -79,8 +94,8 @@ export default function AuthWrapper({ children }: { children: React.ReactNode })
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-50">
         <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-500 mx-auto mb-4"></div>
-          <p className="text-gray-700">Loading your session...</p>
+          <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-500 mx-auto"></div>
+          <p className="mt-4 text-gray-600">Loading...</p>
         </div>
       </div>
     )
@@ -88,21 +103,24 @@ export default function AuthWrapper({ children }: { children: React.ReactNode })
 
   if (error) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50 p-4">
-        <div className="max-w-md w-full bg-white p-6 rounded-lg shadow-md text-center">
-          <div className="text-red-500 mb-4">
-            <svg xmlns="http://www.w3.org/2000/svg" className="h-12 w-12 mx-auto" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
-            </svg>
+      <div className="min-h-screen flex items-center justify-center p-4">
+        <div className="bg-red-50 border-l-4 border-red-400 p-4 w-full max-w-md">
+          <div className="flex">
+            <div className="flex-shrink-0">
+              <svg className="h-5 w-5 text-red-400" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
+                <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
+              </svg>
+            </div>
+            <div className="ml-3">
+              <p className="text-sm text-red-700">{error}</p>
+              <button
+                onClick={() => window.location.reload()}
+                className="mt-2 text-sm font-medium text-red-700 hover:text-red-600"
+              >
+                Try again <span aria-hidden="true">&rarr;</span>
+              </button>
+            </div>
           </div>
-          <h2 className="text-xl font-semibold text-gray-800 mb-2">Something went wrong</h2>
-          <p className="text-gray-600 mb-6">{error}</p>
-          <button
-            onClick={() => window.location.reload()}
-            className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors"
-          >
-            Try Again
-          </button>
         </div>
       </div>
     )

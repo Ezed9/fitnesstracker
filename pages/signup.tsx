@@ -1,10 +1,10 @@
-import { useEffect, useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useRouter } from 'next/router'
 import { createClientComponentClient } from '@supabase/auth-helpers-nextjs'
 import { AuthPage } from '../components/auth/AuthPage'
 import { Loader2 } from 'lucide-react'
 
-export default function Login() {
+export default function SignUp() {
   const [loading, setLoading] = useState(true)
   const supabase = createClientComponentClient()
   const router = useRouter()
@@ -18,7 +18,7 @@ export default function Login() {
         if (error) throw error
         
         if (session) {
-          // Add a small delay to prevent flash of login page
+          // Add a small delay to prevent flash of signup page
           setTimeout(() => {
             router.replace('/dashboard')
           }, 100)
@@ -45,6 +45,6 @@ export default function Login() {
     )
   }
 
-  // Show the auth page if not loading and no session
-  return <AuthPage />
+  // Show the auth page with signup tab active if not loading and no session
+  return <AuthPage defaultTab="signup" />
 }
