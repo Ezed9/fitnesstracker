@@ -1,30 +1,18 @@
-import { useEffect } from 'react'
-import { useRouter } from 'next/router'
-import { createClientComponentClient } from '@supabase/auth-helpers-nextjs'
-import AuthWrapper from '@/components/AuthWrapper'
+import { useEffect } from 'react';
+import { useRouter } from 'next/router';
 
-export default function Home() {
-  const router = useRouter()
-  const supabase = createClientComponentClient()
+export default function Index() {
+  const router = useRouter();
 
   useEffect(() => {
-    // Check if user is logged in and redirect to dashboard
-    const checkUser = async () => {
-      const { data: { session } } = await supabase.auth.getSession()
-      if (session) {
-        router.push('/dashboard')
-      } else {
-        router.push('/login')
-      }
-    }
-    checkUser()
-  }, [router, supabase])
+    // The actual redirection is handled in _app.tsx
+    // This is just a fallback
+    router.replace('/dashboard');
+  }, [router]);
 
   return (
-    <AuthWrapper>
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-500"></div>
-      </div>
-    </AuthWrapper>
-  )
+    <div className="min-h-screen flex items-center justify-center bg-gray-100">
+      <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-500"></div>
+    </div>
+  );
 }
