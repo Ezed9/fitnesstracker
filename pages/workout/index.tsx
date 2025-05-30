@@ -1,6 +1,6 @@
 import React, { useState } from 'react'
 import AuthWrapper from '@/components/AuthWrapper/index'
-import Layout from '@/components/layout/Layout/index'
+// Layout is already provided in _app.tsx
 import { WorkoutHeader } from '@/components/workout/WorkoutHeader'
 import { ExerciseCard } from '@/components/workout/ExerciseCard'
 import { ProgressiveOverload } from '@/components/workout/ProgressiveOverload'
@@ -111,28 +111,24 @@ export default function Workout() {
   
   return (
     <AuthWrapper>
-      <Layout>
-        <div className="flex flex-col min-h-screen w-full bg-[#121212] text-white">
-          <div className="container mx-auto px-4 py-6 max-w-3xl pb-24">
-            <WorkoutHeader split={workoutData.split} />
-            <div className="mt-8 space-y-6">
-              {workoutData.exercises.map((exercise) => (
-                <ExerciseCard key={exercise.id} exercise={exercise} />
-              ))}
-            </div>
-            <div className="mt-12">
-              <ProgressiveOverload exercises={workoutData.exercises} />
-            </div>
-            <div className="mt-8">
-              <WorkoutHistory
-                isExpanded={isHistoryExpanded}
-                onToggle={() => setIsHistoryExpanded(!isHistoryExpanded)}
-              />
-            </div>
+        <div className="container mx-auto px-4 py-6 max-w-3xl pb-24">
+          <WorkoutHeader split={workoutData.split} />
+          <div className="mt-8 space-y-6">
+            {workoutData.exercises.map((exercise) => (
+              <ExerciseCard key={exercise.id} exercise={exercise} />
+            ))}
           </div>
-          <FloatingActionButton />
+          <div className="mt-12">
+            <ProgressiveOverload exercises={workoutData.exercises} />
+          </div>
+          <div className="mt-8">
+            <WorkoutHistory
+              isExpanded={isHistoryExpanded}
+              onToggle={() => setIsHistoryExpanded(!isHistoryExpanded)}
+            />
+          </div>
         </div>
-      </Layout>
+        <FloatingActionButton />
     </AuthWrapper>
   )
 }

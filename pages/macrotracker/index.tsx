@@ -1,7 +1,7 @@
 import React, { useState } from 'react'
 import { CalendarIcon, PlusCircleIcon, SearchIcon } from 'lucide-react'
 import AuthWrapper from '@/components/AuthWrapper/index'
-import Layout from '@/components/layout/Layout/index'
+// Layout is already provided in _app.tsx
 import { DailySummary } from '@/components/macros/DailySummary'
 import { GoalBreakdown } from '@/components/macros/GoalBreakdown'
 import { FoodLog } from '@/components/macros/FoodLog'
@@ -78,42 +78,38 @@ export default function MacroTracker() {
 
   return (
     <AuthWrapper>
-      <Layout>
-        <div className="flex flex-col min-h-screen w-full bg-[#121212] text-white">
-          <div className="container mx-auto px-4 py-6 max-w-4xl">
-            <Header date={date} setDate={setDate} />
-            <MotivationalText consumed={consumed} goals={dailyGoals} />
-            <div className="mt-6">
-              <DailySummary consumed={consumed} goals={dailyGoals} />
-            </div>
-            <div className="mt-8">
-              <GoalBreakdown consumed={consumed} goals={dailyGoals} />
-            </div>
-            <div className="mt-8 flex items-center justify-between">
-              <h2 className="text-xl font-semibold">Today's Food</h2>
-              <div className="flex space-x-2">
-                <button className="flex items-center bg-[#60A5FA] hover:bg-blue-600 text-white py-2 px-4 rounded-lg transition-colors">
-                  <PlusCircleIcon className="w-5 h-5 mr-2" />
-                  Quick Add
-                </button>
-              </div>
-            </div>
-            <div className="mt-4 relative">
-              <div className="relative">
-                <input
-                  type="text"
-                  placeholder="Search foods..."
-                  className="w-full px-4 py-3 pl-10 bg-[#1E1E1E] border border-gray-700 rounded-lg focus:outline-none focus:ring-1 focus:ring-[#4ADE80]"
-                />
-                <SearchIcon className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
-              </div>
-            </div>
-            <div className="mt-6">
-              <FoodLog foodItems={foodItems} />
+        <div className="container mx-auto px-4 py-6 max-w-4xl">
+          <Header date={date} setDate={setDate} />
+          <MotivationalText consumed={consumed} goals={dailyGoals} />
+          <div className="mt-6">
+            <DailySummary consumed={consumed} goals={dailyGoals} />
+          </div>
+          <div className="mt-8">
+            <GoalBreakdown consumed={consumed} goals={dailyGoals} />
+          </div>
+          <div className="mt-8 flex items-center justify-between">
+            <h2 className="text-xl font-semibold">Today's Food</h2>
+            <div className="flex space-x-2">
+              <button className="flex items-center bg-[#60A5FA] hover:bg-blue-600 text-white py-2 px-4 rounded-lg transition-colors">
+                <PlusCircleIcon className="w-5 h-5 mr-2" />
+                Quick Add
+              </button>
             </div>
           </div>
+          <div className="mt-4 relative">
+            <div className="relative">
+              <input
+                type="text"
+                placeholder="Search foods..."
+                className="w-full px-4 py-3 pl-10 bg-[#1E1E1E] border border-gray-700 rounded-lg focus:outline-none focus:ring-1 focus:ring-[#4ADE80]"
+              />
+              <SearchIcon className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
+            </div>
+          </div>
+          <div className="mt-6">
+            <FoodLog foodItems={foodItems} />
+          </div>
         </div>
-      </Layout>
     </AuthWrapper>
   )
 }

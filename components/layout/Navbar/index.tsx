@@ -54,6 +54,15 @@ export default function Navbar() {
     { name: 'Macros', href: '/macrotracker' },
     { name: 'Settings', href: '/settings' },
   ]
+  
+  // Function to check if a navigation item is active
+  const isActive = (path: string) => {
+    // Exact match for dashboard
+    if (path === '/dashboard' && router.pathname === '/dashboard') return true;
+    // For other pages, check if the current path starts with the nav item path
+    // This handles potential sub-pages
+    return path !== '/dashboard' && router.pathname.startsWith(path);
+  }
 
   return (
     <header 
@@ -63,7 +72,7 @@ export default function Navbar() {
           : 'bg-transparent'
       }`}
     >
-      <nav className="mx-auto px-4 sm:px-6 lg:px-8" aria-label="Top">
+      <nav className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8" aria-label="Top">
         <div className="flex items-center justify-between h-16">
           <div className="flex items-center">
             <button
@@ -79,27 +88,32 @@ export default function Navbar() {
               )}
             </button>
             <div className="ml-4 flex items-center">
-              <span className="text-xl font-bold bg-gradient-to-r from-[#4ADE80] to-[#60A5FA] bg-clip-text text-transparent">
+              <span className="text-2xl font-bold bg-gradient-to-r from-[#4ADE80] to-[#60A5FA] bg-clip-text text-transparent tracking-tight">
                 FitTrack
               </span>
             </div>
-            <div className="hidden md:ml-10 md:flex md:space-x-8">
-              {navigation.map((item) => (
-                <Link
-                  key={item.name}
-                  href={item.href}
-                  className="text-[#A1A1AA] hover:text-white px-3 py-2 text-sm font-medium transition-colors duration-200"
-                >
-                  {item.name}
-                </Link>
-              ))}
+            <div className="hidden md:ml-10 md:flex md:space-x-2">
+              {navigation.map((item) => {
+                const active = isActive(item.href);
+                return (
+                  <Link
+                    key={item.name}
+                    href={item.href}
+                    className={`px-4 py-2.5 text-sm font-medium transition-all duration-200 rounded-md ${active 
+                      ? 'bg-[#252525] text-white' 
+                      : 'text-[#A1A1AA] hover:bg-[#252525]/40 hover:text-white'}`}
+                  >
+                    {item.name}
+                  </Link>
+                );
+              })}
             </div>
           </div>
 
-          <div className="hidden md:flex items-center space-x-4">
+          <div className="hidden md:flex items-center space-x-5">
             <button
               type="button"
-              className="p-1.5 rounded-full text-[#A1A1AA] hover:text-white focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-[#1E1E1E] focus:ring-[#4ADE80]"
+              className="p-1.5 rounded-full text-[#A1A1AA] hover:text-white hover:bg-[#252525] transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-[#1E1E1E] focus:ring-[#4ADE80]"
             >
               <span className="sr-only">View notifications</span>
               <Bell className="h-5 w-5" aria-hidden="true" />
@@ -157,15 +171,21 @@ export default function Navbar() {
         } md:hidden bg-[#1E1E1E] border-t border-[#333333]`}
       >
         <div className="px-2 pt-2 pb-3 space-y-1">
-          {navigation.map((item) => (
-            <Link
-              key={item.name}
-              href={item.href}
-              className="block px-3 py-2 rounded-md text-base font-medium text-[#A1A1AA] hover:bg-[#252525] hover:text-white"
-            >
-              {item.name}
-            </Link>
-          ))}
+          {navigation.map((item) => {
+            const active = isActive(item.href);
+            return (
+              <Link
+                key={item.name}
+                href={item.href}
+                className={`flex items-center px-3 py-2.5 rounded-md text-base font-medium ${active 
+                  ? 'bg-[#252525] text-white' 
+                  : 'text-[#A1A1AA] hover:bg-[#252525] hover:text-white'}`}
+              >
+                {item.name}
+                {active && <div className="ml-auto w-1.5 h-1.5 rounded-full bg-[#4ADE80]"></div>}
+              </Link>
+            );
+          })}
           <div className="border-t border-[#333333] mt-2 pt-2">
             <Link
               href="/profile"
