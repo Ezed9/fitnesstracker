@@ -194,87 +194,87 @@ export default function Dashboard() {
         <div className="absolute inset-0 opacity-20 bg-[radial-gradient(circle_at_80%_80%,#60A5FA,transparent_50%)]"></div>
       </div>
       <div className="pt-16">
-      <div className="relative z-10">
-        <main className="container mx-auto px-4 py-8">
-          <div className="flex flex-col md:flex-row md:items-center justify-between mb-8">
-            <h1 className="text-3xl font-bold bg-gradient-to-r from-white to-white/60 bg-clip-text text-transparent">
-              Daily Progress
-            </h1>
-            <div className="mt-2 md:mt-0 flex items-center space-x-2 text-[#A1A1AA] text-sm">
-              <TimerIcon className="h-4 w-4" />
-              <span>Last updated: Just now</span>
-            </div>
-          </div>
-          <section className="mb-8">
-            <h2 className="text-xl font-medium mb-4 text-[#A1A1AA]">
-              Today's Macros
-            </h2>
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
-              <MacroCard
-                title="Calories"
-                current={macros.calories.current}
-                target={macros.calories.target}
-                unit={macros.calories.unit}
-                icon={<FlameIcon className="h-5 w-5" />}
-                color="from-[#4ADE80] to-[#22C55E]"
-                foods={foodData.calories}
-              />
-              <MacroCard
-                title="Protein"
-                current={macros.protein.current}
-                target={macros.protein.target}
-                unit={macros.protein.unit}
-                icon={<BarChartIcon className="h-5 w-5" />}
-                color="from-[#60A5FA] to-[#3B82F6]"
-                foods={foodData.protein}
-              />
-              <MacroCard
-                title="Carbs"
-                current={macros.carbs.current}
-                target={macros.carbs.target}
-                unit={macros.carbs.unit}
-                icon={<BarChartIcon className="h-5 w-5" />}
-                color="from-[#F472B6] to-[#EC4899]"
-                foods={foodData.carbs}
-              />
-              <MacroCard
-                title="Fats"
-                current={macros.fats.current}
-                target={macros.fats.target}
-                unit={macros.fats.unit}
-                icon={<BarChartIcon className="h-5 w-5" />}
-                color="from-[#FB923C] to-[#F97316]"
-                foods={foodData.fats}
-              />
-            </div>
-          </section>
-          <section className="mb-8">
-            <h2 className="text-xl font-medium mb-4 text-[#A1A1AA]">
-              Weight Progress
-            </h2>
-            <div className="bg-[#1E1E1E] rounded-xl p-6 shadow-lg">
-              <BodyWeightGraph data={weightData} />
-              <div className="mt-4 p-4 bg-[#252525] rounded-lg">
-                <p className="text-sm text-[#A1A1AA]">
-                  <span className="text-[#4ADE80] font-medium">
-                    Great progress!
-                  </span>{' '}
-                  You've lost 8 lbs in the last 6 weeks. Keep up the consistent
-                  weight loss of 1-2 lbs per week for healthy, sustainable
-                  results.
-                </p>
+        <div className="relative z-10">
+          <main className="container mx-auto px-4 py-8">
+            <div className="flex flex-col md:flex-row md:items-center justify-between mb-8">
+              <h1 className="text-3xl font-bold bg-gradient-to-r from-white to-white/60 bg-clip-text text-transparent">
+                Daily Progress
+              </h1>
+              <div className="mt-2 md:mt-0 flex items-center space-x-2 text-[#A1A1AA] text-sm">
+                <TimerIcon className="h-4 w-4" />
+                <span>Last updated: Just now</span>
               </div>
             </div>
-          </section>
-          <MotivationalText percentage={80} nutrient="protein" />
-          <section className="mt-8">
-            <h2 className="text-xl font-medium mb-4 text-[#A1A1AA]">
-              Next Workout
-            </h2>
-            <WorkoutCard workout={nextWorkout} />
-          </section>
-        </main>
-      </div>
+            <section className="mb-8">
+              <h2 className="text-xl font-medium mb-4 text-[#A1A1AA]">
+                Today's Macros
+              </h2>
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
+                <MacroCard
+                  title="Calories"
+                  current={macros.calories.current}
+                  target={macros.calories.target}
+                  unit={macros.calories.unit}
+                  icon={<FlameIcon className="h-5 w-5" />}
+                  color="from-[#4ADE80] to-[#22C55E]"
+                  foods={foodData.calories}
+                />
+                <MacroCard
+                  title="Protein"
+                  current={macros.protein.current}
+                  target={macros.protein.target}
+                  unit={macros.protein.unit}
+                  icon={<BarChartIcon className="h-5 w-5" />}
+                  color="from-[#60A5FA] to-[#3B82F6]"
+                  foods={foodData.protein}
+                />
+                <MacroCard
+                  title="Carbs"
+                  current={macros.carbs.current}
+                  target={macros.carbs.target}
+                  unit={macros.carbs.unit}
+                  icon={<BarChartIcon className="h-5 w-5" />}
+                  color="from-[#F472B6] to-[#EC4899]"
+                  foods={foodData.carbs}
+                />
+                <MacroCard
+                  title="Fats"
+                  current={macros.fats.current}
+                  target={macros.fats.target}
+                  unit={macros.fats.unit}
+                  icon={<BarChartIcon className="h-5 w-5" />}
+                  color="from-[#FB923C] to-[#F97316]"
+                  foods={foodData.fats}
+                />
+              </div>
+            </section>
+            <section className="mb-8">
+              <h2 className="text-xl font-medium mb-4 text-[#A1A1AA]">
+                Weight Progress
+              </h2>
+              <div className="bg-[#1E1E1E] rounded-xl p-6 shadow-lg">
+                <BodyWeightGraph data={weightData} />
+                <div className="mt-4 p-4 bg-[#252525] rounded-lg">
+                  <p className="text-sm text-[#A1A1AA]">
+                    <span className="text-[#4ADE80] font-medium">
+                      Great progress!
+                    </span>{' '}
+                    You've lost 8 lbs in the last 6 weeks. Keep up the consistent
+                    weight loss of 1-2 lbs per week for healthy, sustainable
+                    results.
+                  </p>
+                </div>
+              </div>
+            </section>
+            <MotivationalText percentage={80} nutrient="protein" />
+            <section className="mt-8">
+              <h2 className="text-xl font-medium mb-4 text-[#A1A1AA]">
+                Next Workout
+              </h2>
+              <WorkoutCard workout={nextWorkout} />
+            </section>
+          </main>
+        </div>
       </div>
     </div>
   )
