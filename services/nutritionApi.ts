@@ -1,39 +1,58 @@
-// Open Food Facts API service
-// Documentation: https://openfoodfacts.github.io/api-documentation/
+// USDA FoodData Central API service
+// Documentation: https://fdc.nal.usda.gov/api-guide.html
 
-const BASE_URL = 'https://world.openfoodfacts.org/api/v2';
+const API_KEY = process.env.NEXT_PUBLIC_USDA_API_KEY || '';
+const BASE_URL = 'https://api.nal.usda.gov/fdc/v1';
 
-export interface Nutriments {
-  'energy-kcal_100g'?: number;
-  'energy-kcal'?: number;
-  'energy_100g'?: number;
-  'energy-kj_100g'?: number;
-  'proteins_100g'?: number;
-  'carbohydrates_100g'?: number;
-  'fat_100g'?: number;
-  'fiber_100g'?: number;
+export interface Nutrient {
+  nutrientId: number;
+  nutrientName: string;
+  nutrientNumber: string;
+  unitName: string;
+  value: number;
+}
+
+export interface FoodNutrient {
+  nutrient: Nutrient;
+  amount: number;
+}
+
+export interface FoodPortion {
+  amount: number;
+  gramWeight: number;
+  portionDescription?: string;
+  measureUnit?: {
+    name: string;
+  };
 }
 
 export interface FoodItem {
-  id: string;
-  product_name: string;
-  product_name_en?: string;
-  brands?: string;
-  quantity?: string;
-  serving_size?: string;
-  serving_quantity?: number;
-  nutriments: Nutriments;
-  image_url?: string;
-  image_small_url?: string;
-  image_thumb_url?: string;
+  fdcId: number;
+  description: string;
+  lowercaseDescription?: string;
+  dataType?: string;
+  gtinUpc?: string;
+  publishedDate?: string;
+  brandOwner?: string;
+  brandName?: string;
+  ingredients?: string;
+  marketCountry?: string;
+  foodCategory?: string;
+  allHighlightFields?: string;
+  score?: number;
+  foodNutrients?: FoodNutrient[];
+  foodPortions?: FoodPortion[];
+  servingSize?: number;
+  servingSizeUnit?: string;
 }
 
 export interface SearchResponse {
-  count: number;
-  page: number;
-  page_count: number;
-  page_size: number;
-  products: FoodItem[];
+  totalHits: number;
+  currentPage: number;
+  totalPages: number;
+  pageList: number[];
+  foodSearchCriteria: any;
+  foods: FoodItem[];
 }
 
 /**
@@ -44,15 +63,18 @@ export interface SearchResponse {
 export const searchFoodItems = async (query: string): Promise<FoodItem[]> => {
   try {
     if (!query.trim()) return [];
+    if (!API_KEY) {
+      console.error('USDA API key is missing. Please add it to your .env.local file.');
+      return [];
+    }
     
-    // Open Food Facts search endpoint
+    // USDA FoodData Central search endpoint
     const response = await fetch(
-      `${BASE_URL}/search?search_terms=${encodeURIComponent(query)}&fields=id,product_name,product_name_en,brands,quantity,serving_size,nutriments,image_url,image_small_url,image_thumb_url&page_size=20`,
+      `${BASE_URL}/foods/search?api_key=${API_KEY}&query=${encodeURIComponent(query)}&dataType=Foundation,SR%20Legacy,Survey%20(FNDDS),Branded&pageSize=25`,
       {
         method: 'GET',
         headers: {
-          'Content-Type': 'application/json',
-          'User-Agent': 'FitTrack-App - Web - Version 1.0'
+          'Content-Type': 'application/json'
         }
       }
     );
@@ -63,14 +85,8 @@ export const searchFoodItems = async (query: string): Promise<FoodItem[]> => {
     
     const data: SearchResponse = await response.json();
     
-    // Filter out products without nutritional information
-    return data.products.filter(product => {
-      return product.product_name && (
-        product.nutriments['energy-kcal_100g'] ||
-        product.nutriments['energy-kcal'] ||
-        product.nutriments['energy_100g']
-      );
-    });
+    // Return all foods from the search results
+    return data.foods || [];
   } catch (error) {
     console.error('Error searching for food:', error);
     throw error;
@@ -79,18 +95,22 @@ export const searchFoodItems = async (query: string): Promise<FoodItem[]> => {
 
 /**
  * Get detailed nutrition information for a food item by its ID
- * @param id Open Food Facts product ID
+ * @param fdcId USDA FoodData Central ID
  * @returns Promise with nutrition details
  */
-export const getNutritionDetails = async (id: string) => {
+export const getNutritionDetails = async (fdcId: number) => {
   try {
+    if (!API_KEY) {
+      console.error('USDA API key is missing. Please add it to your .env.local file.');
+      return null;
+    }
+    
     const response = await fetch(
-      `${BASE_URL}/product/${id}?fields=id,product_name,product_name_en,brands,quantity,serving_size,nutriments,image_url,image_small_url`,
+      `${BASE_URL}/food/${fdcId}?api_key=${API_KEY}`,
       {
         method: 'GET',
         headers: {
-          'Content-Type': 'application/json',
-          'User-Agent': 'FitTrack-App - Web - Version 1.0'
+          'Content-Type': 'application/json'
         }
       }
     );
@@ -107,32 +127,56 @@ export const getNutritionDetails = async (id: string) => {
 };
 
 /**
- * Calculate calories from kJ if calories are not available
- * @param kj Energy in kilojoules
- * @returns Calories
+ * Find a nutrient value by nutrient ID
+ * @param foodNutrients Array of food nutrients
+ * @param nutrientId ID of the nutrient to find
+ * @returns Nutrient value or 0 if not found
  */
-const kJToKcal = (kj: number): number => {
-  return kj * 0.239;
+export const getNutrientValue = (foodNutrients: FoodNutrient[] = [], nutrientId: number): number => {
+  const nutrient = foodNutrients.find(item => 
+    item.nutrient && item.nutrient.nutrientId === nutrientId
+  );
+  return nutrient ? nutrient.amount : 0;
 };
 
 /**
- * Get calories from nutriments object, handling different formats
- * @param nutriments Nutriments object from Open Food Facts
+ * Get calories from food nutrients
+ * @param foodNutrients Array of food nutrients from USDA
  * @returns Calories value
  */
-export const getCalories = (nutriments: Nutriments): number => {
-  // Try different fields that might contain calorie information
-  if (nutriments['energy-kcal_100g'] !== undefined) {
-    return nutriments['energy-kcal_100g'];
-  } else if (nutriments['energy-kcal'] !== undefined) {
-    return nutriments['energy-kcal'];
-  } else if (nutriments['energy_100g'] !== undefined) {
-    // energy_100g is usually in kJ, convert to kcal
-    return kJToKcal(nutriments['energy_100g']);
-  } else if (nutriments['energy-kj_100g'] !== undefined) {
-    return kJToKcal(nutriments['energy-kj_100g']);
-  }
-  return 0;
+export const getCalories = (foodNutrients: FoodNutrient[] = []): number => {
+  // Energy (kcal) nutrient ID is 1008 in USDA database
+  return getNutrientValue(foodNutrients, 1008);
+};
+
+/**
+ * Get protein from food nutrients
+ * @param foodNutrients Array of food nutrients from USDA
+ * @returns Protein value in grams
+ */
+export const getProtein = (foodNutrients: FoodNutrient[] = []): number => {
+  // Protein nutrient ID is 1003 in USDA database
+  return getNutrientValue(foodNutrients, 1003);
+};
+
+/**
+ * Get carbohydrates from food nutrients
+ * @param foodNutrients Array of food nutrients from USDA
+ * @returns Carbohydrates value in grams
+ */
+export const getCarbs = (foodNutrients: FoodNutrient[] = []): number => {
+  // Carbohydrates nutrient ID is 1005 in USDA database
+  return getNutrientValue(foodNutrients, 1005);
+};
+
+/**
+ * Get fat from food nutrients
+ * @param foodNutrients Array of food nutrients from USDA
+ * @returns Fat value in grams
+ */
+export const getFat = (foodNutrients: FoodNutrient[] = []): number => {
+  // Total fat nutrient ID is 1004 in USDA database
+  return getNutrientValue(foodNutrients, 1004);
 };
 
 /**
@@ -141,18 +185,39 @@ export const getCalories = (nutriments: Nutriments): number => {
  * @returns Formatted food data
  */
 export const formatFoodData = (foodItem: FoodItem) => {
-  const calories = getCalories(foodItem.nutriments);
-  const servingInfo = foodItem.serving_size || foodItem.quantity || '100g';
+  const calories = getCalories(foodItem.foodNutrients);
+  const protein = getProtein(foodItem.foodNutrients);
+  const carbs = getCarbs(foodItem.foodNutrients);
+  const fat = getFat(foodItem.foodNutrients);
+  
+  // Format serving information
+  let servingInfo = '100g';
+  if (foodItem.servingSize && foodItem.servingSizeUnit) {
+    servingInfo = `${foodItem.servingSize} ${foodItem.servingSizeUnit}`;
+  } else if (foodItem.foodPortions && foodItem.foodPortions.length > 0) {
+    const portion = foodItem.foodPortions[0];
+    servingInfo = portion.portionDescription || 
+                 (portion.measureUnit ? 
+                  `${portion.amount} ${portion.measureUnit.name} (${portion.gramWeight}g)` : 
+                  `${portion.gramWeight}g`);
+  }
+  
+  // Format brand information
+  const brandInfo = foodItem.brandOwner || foodItem.brandName || '';
+  const nameWithBrand = brandInfo ? 
+    `${foodItem.description} (${brandInfo})` : 
+    foodItem.description;
   
   return {
-    name: `${foodItem.product_name || foodItem.product_name_en || 'Unknown food'} (${servingInfo})`,
+    name: `${nameWithBrand} - ${servingInfo}`,
     calories: Math.round(calories || 0),
-    protein: Math.round(foodItem.nutriments['proteins_100g'] || 0),
-    carbs: Math.round(foodItem.nutriments['carbohydrates_100g'] || 0),
-    fat: Math.round(foodItem.nutriments['fat_100g'] || 0),
+    protein: Math.round(protein || 0),
+    carbs: Math.round(carbs || 0),
+    fat: Math.round(fat || 0),
     time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
     mealType: 'snacks' as 'breakfast' | 'lunch' | 'dinner' | 'snacks',
     id: Date.now(),
-    image: foodItem.image_thumb_url || foodItem.image_small_url || foodItem.image_url,
+    // USDA doesn't provide images, so we'll leave this empty
+    image: '',
   };
 };

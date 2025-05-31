@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react'
 import { PlusIcon, SearchIcon, XIcon, Loader2Icon } from 'lucide-react'
-import { searchFoodItems, FoodItem as OpenFoodFactsItem, formatFoodData, getCalories } from '@/services/nutritionApi'
+import { searchFoodItems, FoodItem as USDAFoodItem, formatFoodData, getCalories, getProtein, getCarbs, getFat } from '@/services/nutritionApi'
 
 interface FoodItem {
   name: string
@@ -28,7 +28,7 @@ export const QuickAddFood: React.FC = () => {
   const [selectedFoods, setSelectedFoods] = useState<FoodItem[]>([])
   const [servings, setServings] = useState<{ [key: string]: number }>({})
   const [isAdding, setIsAdding] = useState(false)
-  const [searchResults, setSearchResults] = useState<OpenFoodFactsItem[]>([])
+  const [searchResults, setSearchResults] = useState<USDAFoodItem[]>([])
   const [isLoading, setIsLoading] = useState(false)
   const [apiError, setApiError] = useState(false)
   const searchTimeoutRef = useRef<NodeJS.Timeout | null>(null)
@@ -72,19 +72,39 @@ export const QuickAddFood: React.FC = () => {
       )
     : []
 
-  const handleAddFood = (food: FoodItem | OpenFoodFactsItem) => {
-    // If it's an Open Food Facts item, convert it to our app's format
-    if ('product_name' in food) {
-      const calories = getCalories(food.nutriments);
-      const servingInfo = food.serving_size || food.quantity || '100g';
+  const handleAddFood = (food: FoodItem | USDAFoodItem) => {
+    // If it's a USDA food item, convert it to our app's format
+    if ('fdcId' in food) {
+      const calories = getCalories(food.foodNutrients);
+      const protein = getProtein(food.foodNutrients);
+      const carbs = getCarbs(food.foodNutrients);
+      const fat = getFat(food.foodNutrients);
+      
+      // Format serving information
+      let servingInfo = '100g';
+      if (food.servingSize && food.servingSizeUnit) {
+        servingInfo = `${food.servingSize} ${food.servingSizeUnit}`;
+      } else if (food.foodPortions && food.foodPortions.length > 0) {
+        const portion = food.foodPortions[0];
+        servingInfo = portion.portionDescription || 
+                    (portion.measureUnit ? 
+                    `${portion.amount} ${portion.measureUnit.name} (${portion.gramWeight}g)` : 
+                    `${portion.gramWeight}g`);
+      }
+      
+      // Format brand information
+      const brandInfo = food.brandOwner || food.brandName || '';
+      const nameWithBrand = brandInfo ? 
+        `${food.description} (${brandInfo})` : 
+        food.description;
       
       const formattedFood = {
-        name: `${food.product_name || food.product_name_en || 'Unknown food'} (${servingInfo})`,
+        name: `${nameWithBrand} - ${servingInfo}`,
         calories: Math.round(calories || 0),
-        protein: Math.round(food.nutriments['proteins_100g'] || 0),
-        carbs: Math.round(food.nutriments['carbohydrates_100g'] || 0),
-        fats: Math.round(food.nutriments['fat_100g'] || 0),
-        image: food.image_thumb_url || food.image_small_url || food.image_url
+        protein: Math.round(protein || 0),
+        carbs: Math.round(carbs || 0),
+        fats: Math.round(fat || 0),
+        image: '' // USDA doesn't provide images
       }
       setSelectedFoods([...selectedFoods, formattedFood])
       setServings({ ...servings, [formattedFood.name]: 1 })
@@ -209,25 +229,32 @@ export const QuickAddFood: React.FC = () => {
               ) : searchResults.length > 0 ? (
                 // Show API results
                 searchResults.map((food) => {
-                  const calories = getCalories(food.nutriments);
-                  const servingInfo = food.serving_size || food.quantity || '100g';
+                  const calories = getCalories(food.foodNutrients);
+                  
+                  // Format serving information
+                  let servingInfo = '100g';
+                  if (food.servingSize && food.servingSizeUnit) {
+                    servingInfo = `${food.servingSize} ${food.servingSizeUnit}`;
+                  } else if (food.foodPortions && food.foodPortions.length > 0) {
+                    const portion = food.foodPortions[0];
+                    servingInfo = portion.portionDescription || 
+                                (portion.measureUnit ? 
+                                `${portion.amount} ${portion.measureUnit.name}` : 
+                                `${portion.gramWeight}g`);
+                  }
+                  
+                  // Format brand information
+                  const brandInfo = food.brandOwner || food.brandName || '';
                   
                   return (
                     <div
-                      key={food.id}
+                      key={food.fdcId}
                       onClick={() => handleAddFood(food)}
                       className="px-4 py-2 hover:bg-[#2A2A2A] cursor-pointer flex items-center"
                     >
-                      {food.image_thumb_url && (
-                        <img 
-                          src={food.image_thumb_url} 
-                          alt={food.product_name || 'Food image'} 
-                          className="w-8 h-8 rounded object-cover mr-2"
-                        />
-                      )}
                       <div className="flex-1">
-                        <div className="font-medium">{food.product_name || food.product_name_en}</div>
-                        {food.brands && <div className="text-xs text-gray-400">{food.brands}</div>}
+                        <div className="font-medium">{food.description}</div>
+                        {brandInfo && <div className="text-xs text-gray-400">{brandInfo}</div>}
                         <div className="text-xs text-gray-400">{servingInfo}</div>
                       </div>
                       <span className="text-sm text-gray-400 ml-2">{Math.round(calories)} kcal</span>

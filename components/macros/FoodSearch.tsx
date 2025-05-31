@@ -1,6 +1,6 @@
-import React, { useState, useEffect, useRef } from 'react'
-import { SearchIcon, Loader2Icon, XIcon, PlusIcon } from 'lucide-react'
-import { searchFoodItems, FoodItem, formatFoodData } from '@/services/nutritionApi'
+import React, { useState, useEffect, useRef } from 'react';
+import { PlusIcon, SearchIcon, Loader2Icon, XIcon } from 'lucide-react';
+import { searchFoodItems, FoodItem, getCalories, getProtein, getCarbs, getFat, formatFoodData } from '@/services/nutritionApi';
 
 interface FoodSearchProps {
   onAddFood: (food: any) => void
@@ -117,23 +117,35 @@ export const FoodSearch: React.FC<FoodSearchProps> = ({ onAddFood }) => {
       {showResults && results.length > 0 && (
         <div className="absolute z-10 w-full mt-1 bg-[#252525] border border-gray-700 rounded-lg shadow-lg max-h-80 overflow-y-auto">
           {results.map((food) => {
-            const calories = food.nutriments['energy-kcal_100g'] || 
-                          food.nutriments['energy-kcal'] || 
-                          (food.nutriments['energy_100g'] ? food.nutriments['energy_100g'] * 0.239 : 0);
-            const protein = food.nutriments['proteins_100g'] || 0;
-            const carbs = food.nutriments['carbohydrates_100g'] || 0;
-            const fat = food.nutriments['fat_100g'] || 0;
-            const servingInfo = food.serving_size || food.quantity || '100g';
+            const calories = getCalories(food.foodNutrients);
+            const protein = getProtein(food.foodNutrients);
+            const carbs = getCarbs(food.foodNutrients);
+            const fat = getFat(food.foodNutrients);
+            
+            // Format serving information
+            let servingInfo = '100g';
+            if (food.servingSize && food.servingSizeUnit) {
+              servingInfo = `${food.servingSize} ${food.servingSizeUnit}`;
+            } else if (food.foodPortions && food.foodPortions.length > 0) {
+              const portion = food.foodPortions[0];
+              servingInfo = portion.portionDescription || 
+                          (portion.measureUnit ? 
+                          `${portion.amount} ${portion.measureUnit.name} (${portion.gramWeight}g)` : 
+                          `${portion.gramWeight}g`);
+            }
+            
+            // Format brand information
+            const brandInfo = food.brandOwner || food.brandName || '';
             
             return (
               <div 
-                key={food.id}
+                key={food.fdcId}
                 className="p-3 border-b border-gray-700 hover:bg-[#333333] cursor-pointer flex items-start"
                 onClick={() => handleAddFood(food)}
               >
                 <div className="flex-1">
-                  <div className="font-medium">{food.product_name || food.product_name_en}</div>
-                  {food.brands && <div className="text-xs text-gray-400">{food.brands}</div>}
+                  <div className="font-medium">{food.description}</div>
+                  {brandInfo && <div className="text-xs text-gray-400">{brandInfo}</div>}
                   <div className="text-xs text-gray-400">{servingInfo}</div>
                   <div className="text-sm text-gray-400 mt-1">
                     {Math.round(calories)} kcal • 
@@ -142,13 +154,6 @@ export const FoodSearch: React.FC<FoodSearchProps> = ({ onAddFood }) => {
                     F: {Math.round(fat)}g
                   </div>
                 </div>
-                {food.image_thumb_url && (
-                  <img 
-                    src={food.image_thumb_url} 
-                    alt={food.product_name || food.product_name_en || 'Food image'} 
-                    className="w-12 h-12 rounded object-cover mr-2"
-                  />
-                )}
                 <button className="ml-2 p-1 bg-[#4ADE80] rounded-full text-black">
                   <PlusIcon className="w-4 h-4" />
                 </button>
