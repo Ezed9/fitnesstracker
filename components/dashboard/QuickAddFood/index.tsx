@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react'
 import { PlusIcon, SearchIcon, XIcon, Loader2Icon } from 'lucide-react'
-import { searchFoodItems, FoodItem as NutritionixFoodItem, formatFoodData } from '@/services/nutritionApi'
+import { searchFoodItems, FoodItem as OpenFoodFactsItem, formatFoodData, getCalories } from '@/services/nutritionApi'
 
 interface FoodItem {
   name: string
@@ -28,7 +28,7 @@ export const QuickAddFood: React.FC = () => {
   const [selectedFoods, setSelectedFoods] = useState<FoodItem[]>([])
   const [servings, setServings] = useState<{ [key: string]: number }>({})
   const [isAdding, setIsAdding] = useState(false)
-  const [searchResults, setSearchResults] = useState<NutritionixFoodItem[]>([])
+  const [searchResults, setSearchResults] = useState<OpenFoodFactsItem[]>([])
   const [isLoading, setIsLoading] = useState(false)
   const [apiError, setApiError] = useState(false)
   const searchTimeoutRef = useRef<NodeJS.Timeout | null>(null)
@@ -72,16 +72,19 @@ export const QuickAddFood: React.FC = () => {
       )
     : []
 
-  const handleAddFood = (food: FoodItem | NutritionixFoodItem) => {
-    // If it's a Nutritionix food item, convert it to our app's format
-    if ('food_name' in food) {
+  const handleAddFood = (food: FoodItem | OpenFoodFactsItem) => {
+    // If it's an Open Food Facts item, convert it to our app's format
+    if ('product_name' in food) {
+      const calories = getCalories(food.nutriments);
+      const servingInfo = food.serving_size || food.quantity || '100g';
+      
       const formattedFood = {
-        name: `${food.food_name} (${food.serving_qty} ${food.serving_unit})`,
-        calories: Math.round(food.nf_calories || 0),
-        protein: Math.round(food.nf_protein || 0),
-        carbs: Math.round(food.nf_total_carbohydrate || 0),
-        fats: Math.round(food.nf_total_fat || 0),
-        image: food.photo?.thumb
+        name: `${food.product_name || food.product_name_en || 'Unknown food'} (${servingInfo})`,
+        calories: Math.round(calories || 0),
+        protein: Math.round(food.nutriments['proteins_100g'] || 0),
+        carbs: Math.round(food.nutriments['carbohydrates_100g'] || 0),
+        fats: Math.round(food.nutriments['fat_100g'] || 0),
+        image: food.image_thumb_url || food.image_small_url || food.image_url
       }
       setSelectedFoods([...selectedFoods, formattedFood])
       setServings({ ...servings, [formattedFood.name]: 1 })
@@ -205,26 +208,32 @@ export const QuickAddFood: React.FC = () => {
                 )
               ) : searchResults.length > 0 ? (
                 // Show API results
-                searchResults.map((food) => (
-                  <div
-                    key={`${food.food_name}-${food.serving_qty}-${food.serving_unit}`}
-                    onClick={() => handleAddFood(food)}
-                    className="px-4 py-2 hover:bg-[#2A2A2A] cursor-pointer flex items-center"
-                  >
-                    {food.photo?.thumb && (
-                      <img 
-                        src={food.photo.thumb} 
-                        alt={food.food_name} 
-                        className="w-8 h-8 rounded object-cover mr-2"
-                      />
-                    )}
-                    <div className="flex-1">
-                      <div className="font-medium">{food.food_name}</div>
-                      <div className="text-xs text-gray-400">{food.serving_qty} {food.serving_unit} ({food.serving_weight_grams}g)</div>
+                searchResults.map((food) => {
+                  const calories = getCalories(food.nutriments);
+                  const servingInfo = food.serving_size || food.quantity || '100g';
+                  
+                  return (
+                    <div
+                      key={food.id}
+                      onClick={() => handleAddFood(food)}
+                      className="px-4 py-2 hover:bg-[#2A2A2A] cursor-pointer flex items-center"
+                    >
+                      {food.image_thumb_url && (
+                        <img 
+                          src={food.image_thumb_url} 
+                          alt={food.product_name || 'Food image'} 
+                          className="w-8 h-8 rounded object-cover mr-2"
+                        />
+                      )}
+                      <div className="flex-1">
+                        <div className="font-medium">{food.product_name || food.product_name_en}</div>
+                        {food.brands && <div className="text-xs text-gray-400">{food.brands}</div>}
+                        <div className="text-xs text-gray-400">{servingInfo}</div>
+                      </div>
+                      <span className="text-sm text-gray-400 ml-2">{Math.round(calories)} kcal</span>
                     </div>
-                    <span className="text-sm text-gray-400 ml-2">{Math.round(food.nf_calories)} kcal</span>
-                  </div>
-                ))
+                  );
+                })
               ) : searchTerm ? (
                 <div className="px-4 py-2 text-gray-400">No foods found</div>
               ) : null}

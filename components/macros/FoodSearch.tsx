@@ -116,34 +116,45 @@ export const FoodSearch: React.FC<FoodSearchProps> = ({ onAddFood }) => {
 
       {showResults && results.length > 0 && (
         <div className="absolute z-10 w-full mt-1 bg-[#252525] border border-gray-700 rounded-lg shadow-lg max-h-80 overflow-y-auto">
-          {results.map((food) => (
-            <div 
-              key={`${food.food_name}-${food.serving_qty}-${food.serving_unit}`}
-              className="p-3 border-b border-gray-700 hover:bg-[#333333] cursor-pointer flex items-start"
-              onClick={() => handleAddFood(food)}
-            >
-              <div className="flex-1">
-                <div className="font-medium">{food.food_name}</div>
-                <div className="text-xs text-gray-400">{food.serving_qty} {food.serving_unit} ({food.serving_weight_grams}g)</div>
-                <div className="text-sm text-gray-400 mt-1">
-                  {Math.round(food.nf_calories || 0)} kcal • 
-                  P: {Math.round(food.nf_protein || 0)}g • 
-                  C: {Math.round(food.nf_total_carbohydrate || 0)}g • 
-                  F: {Math.round(food.nf_total_fat || 0)}g
+          {results.map((food) => {
+            const calories = food.nutriments['energy-kcal_100g'] || 
+                          food.nutriments['energy-kcal'] || 
+                          (food.nutriments['energy_100g'] ? food.nutriments['energy_100g'] * 0.239 : 0);
+            const protein = food.nutriments['proteins_100g'] || 0;
+            const carbs = food.nutriments['carbohydrates_100g'] || 0;
+            const fat = food.nutriments['fat_100g'] || 0;
+            const servingInfo = food.serving_size || food.quantity || '100g';
+            
+            return (
+              <div 
+                key={food.id}
+                className="p-3 border-b border-gray-700 hover:bg-[#333333] cursor-pointer flex items-start"
+                onClick={() => handleAddFood(food)}
+              >
+                <div className="flex-1">
+                  <div className="font-medium">{food.product_name || food.product_name_en}</div>
+                  {food.brands && <div className="text-xs text-gray-400">{food.brands}</div>}
+                  <div className="text-xs text-gray-400">{servingInfo}</div>
+                  <div className="text-sm text-gray-400 mt-1">
+                    {Math.round(calories)} kcal • 
+                    P: {Math.round(protein)}g • 
+                    C: {Math.round(carbs)}g • 
+                    F: {Math.round(fat)}g
+                  </div>
                 </div>
+                {food.image_thumb_url && (
+                  <img 
+                    src={food.image_thumb_url} 
+                    alt={food.product_name || food.product_name_en || 'Food image'} 
+                    className="w-12 h-12 rounded object-cover mr-2"
+                  />
+                )}
+                <button className="ml-2 p-1 bg-[#4ADE80] rounded-full text-black">
+                  <PlusIcon className="w-4 h-4" />
+                </button>
               </div>
-              {food.photo?.thumb && (
-                <img 
-                  src={food.photo.thumb} 
-                  alt={food.food_name} 
-                  className="w-12 h-12 rounded object-cover mr-2"
-                />
-              )}
-              <button className="ml-2 p-1 bg-[#4ADE80] rounded-full text-black">
-                <PlusIcon className="w-4 h-4" />
-              </button>
-            </div>
-          ))}
+            );
+          })}
         </div>
       )}
 
