@@ -1,5 +1,6 @@
-import React, { useState } from 'react'
-import { PlusIcon, SearchIcon, XIcon } from 'lucide-react'
+import React, { useState, useEffect, useRef } from 'react'
+import { PlusIcon, SearchIcon, XIcon, Loader2Icon } from 'lucide-react'
+import { searchFoodItems, FoodItem as NutritionixFoodItem, formatFoodData } from '@/services/nutritionApi'
 
 interface FoodItem {
   name: string
@@ -7,9 +8,11 @@ interface FoodItem {
   protein: number
   carbs: number
   fats: number
+  image?: string
 }
 
-const commonFoods: FoodItem[] = [
+// Fallback common foods in case API is not available
+const fallbackFoods: FoodItem[] = [
   { name: 'Chicken Breast (100g)', calories: 165, protein: 31, carbs: 0, fats: 3.6 },
   { name: 'Brown Rice (100g)', calories: 112, protein: 2.6, carbs: 23, fats: 0.9 },
   { name: 'Egg (1 large)', calories: 72, protein: 6.3, carbs: 0.4, fats: 5 },
@@ -25,16 +28,71 @@ export const QuickAddFood: React.FC = () => {
   const [selectedFoods, setSelectedFoods] = useState<FoodItem[]>([])
   const [servings, setServings] = useState<{ [key: string]: number }>({})
   const [isAdding, setIsAdding] = useState(false)
+  const [searchResults, setSearchResults] = useState<NutritionixFoodItem[]>([])
+  const [isLoading, setIsLoading] = useState(false)
+  const [apiError, setApiError] = useState(false)
+  const searchTimeoutRef = useRef<NodeJS.Timeout | null>(null)
 
-  const filteredFoods = commonFoods.filter(food =>
-    food.name.toLowerCase().includes(searchTerm.toLowerCase())
-  )
+  // Search for foods using the Nutritionix API with debouncing
+  useEffect(() => {
+    if (searchTimeoutRef.current) {
+      clearTimeout(searchTimeoutRef.current)
+    }
 
-  const handleAddFood = (food: FoodItem) => {
-    setSelectedFoods([...selectedFoods, food])
-    setServings({ ...servings, [food.name]: 1 })
+    if (!searchTerm.trim()) {
+      setSearchResults([])
+      return
+    }
+
+    setIsLoading(true)
+    searchTimeoutRef.current = setTimeout(async () => {
+      try {
+        const results = await searchFoodItems(searchTerm)
+        setSearchResults(results)
+        setApiError(false)
+      } catch (error) {
+        console.error('Error searching for foods:', error)
+        setApiError(true)
+      } finally {
+        setIsLoading(false)
+      }
+    }, 500)
+
+    return () => {
+      if (searchTimeoutRef.current) {
+        clearTimeout(searchTimeoutRef.current)
+      }
+    }
+  }, [searchTerm])
+
+  // Fallback to static foods if API fails
+  const filteredFoods = apiError
+    ? fallbackFoods.filter(food =>
+        food.name.toLowerCase().includes(searchTerm.toLowerCase())
+      )
+    : []
+
+  const handleAddFood = (food: FoodItem | NutritionixFoodItem) => {
+    // If it's a Nutritionix food item, convert it to our app's format
+    if ('food_name' in food) {
+      const formattedFood = {
+        name: `${food.food_name} (${food.serving_qty} ${food.serving_unit})`,
+        calories: Math.round(food.nf_calories || 0),
+        protein: Math.round(food.nf_protein || 0),
+        carbs: Math.round(food.nf_total_carbohydrate || 0),
+        fats: Math.round(food.nf_total_fat || 0),
+        image: food.photo?.thumb
+      }
+      setSelectedFoods([...selectedFoods, formattedFood])
+      setServings({ ...servings, [formattedFood.name]: 1 })
+    } else {
+      // It's already in our app's format
+      setSelectedFoods([...selectedFoods, food])
+      setServings({ ...servings, [food.name]: 1 })
+    }
     setSearchTerm('')
     setIsAdding(false)
+    setSearchResults([])
   }
 
   const handleRemoveFood = (foodName: string) => {
@@ -122,22 +180,54 @@ export const QuickAddFood: React.FC = () => {
             </button>
           </div>
 
-          {searchTerm && (
-            <div className="mt-2 max-h-48 overflow-y-auto bg-[#252525] rounded-lg">
-              {filteredFoods.length > 0 ? (
-                filteredFoods.map((food) => (
+          {(searchTerm || isLoading) && (
+            <div className="mt-2 max-h-60 overflow-y-auto bg-[#252525] rounded-lg">
+              {isLoading ? (
+                <div className="flex justify-center items-center p-4">
+                  <Loader2Icon className="h-5 w-5 text-[#4ADE80] animate-spin" />
+                  <span className="ml-2 text-gray-400">Searching...</span>
+                </div>
+              ) : apiError ? (
+                // Show fallback foods if API fails
+                filteredFoods.length > 0 ? (
+                  filteredFoods.map((food) => (
+                    <div
+                      key={food.name}
+                      onClick={() => handleAddFood(food)}
+                      className="px-4 py-2 hover:bg-[#2A2A2A] cursor-pointer flex justify-between items-center"
+                    >
+                      <span>{food.name}</span>
+                      <span className="text-sm text-gray-400">{food.calories} kcal</span>
+                    </div>
+                  ))
+                ) : (
+                  <div className="px-4 py-2 text-gray-400">No foods found</div>
+                )
+              ) : searchResults.length > 0 ? (
+                // Show API results
+                searchResults.map((food) => (
                   <div
-                    key={food.name}
+                    key={`${food.food_name}-${food.serving_qty}-${food.serving_unit}`}
                     onClick={() => handleAddFood(food)}
-                    className="px-4 py-2 hover:bg-[#2A2A2A] cursor-pointer flex justify-between items-center"
+                    className="px-4 py-2 hover:bg-[#2A2A2A] cursor-pointer flex items-center"
                   >
-                    <span>{food.name}</span>
-                    <span className="text-sm text-gray-400">{food.calories} kcal</span>
+                    {food.photo?.thumb && (
+                      <img 
+                        src={food.photo.thumb} 
+                        alt={food.food_name} 
+                        className="w-8 h-8 rounded object-cover mr-2"
+                      />
+                    )}
+                    <div className="flex-1">
+                      <div className="font-medium">{food.food_name}</div>
+                      <div className="text-xs text-gray-400">{food.serving_qty} {food.serving_unit} ({food.serving_weight_grams}g)</div>
+                    </div>
+                    <span className="text-sm text-gray-400 ml-2">{Math.round(food.nf_calories)} kcal</span>
                   </div>
                 ))
-              ) : (
+              ) : searchTerm ? (
                 <div className="px-4 py-2 text-gray-400">No foods found</div>
-              )}
+              ) : null}
             </div>
           )}
         </div>

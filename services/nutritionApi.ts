@@ -1,38 +1,39 @@
-// Edamam Food Database API service
-// Documentation: https://developer.edamam.com/food-database-api-docs
+// Nutritionix API service
+// Documentation: https://developer.nutritionix.com/docs/v2
 
-const APP_ID = process.env.NEXT_PUBLIC_EDAMAM_APP_ID || '';
-const APP_KEY = process.env.NEXT_PUBLIC_EDAMAM_APP_KEY || '';
-const BASE_URL = 'https://api.edamam.com/api/food-database/v2';
+const API_ID = process.env.NEXT_PUBLIC_NUTRITIONIX_APP_ID || '';
+const API_KEY = process.env.NEXT_PUBLIC_NUTRITIONIX_API_KEY || '';
+const BASE_URL = 'https://trackapi.nutritionix.com/v2';
 
 export interface NutrientInfo {
-  ENERC_KCAL: number; // calories
-  PROCNT: number; // protein
-  FAT: number; // fat
-  CHOCDF: number; // carbs
-  FIBTG?: number; // fiber
+  calories: number;
+  protein_g: number;
+  fat_g: number;
+  carbohydrate_g: number;
+  fiber_g?: number;
 }
 
 export interface FoodItem {
-  foodId: string;
-  label: string;
-  nutrients: NutrientInfo;
-  category: string;
-  categoryLabel: string;
-  image?: string;
+  food_name: string;
+  serving_qty: number;
+  serving_unit: string;
+  serving_weight_grams: number;
+  nf_calories: number;
+  nf_total_fat: number;
+  nf_total_carbohydrate: number;
+  nf_protein: number;
+  nf_dietary_fiber?: number;
+  photo: {
+    thumb: string;
+    highres?: string;
+  };
+  tag_id?: string;
+  nix_item_id?: string;
 }
 
 export interface SearchResponse {
-  text: string;
-  parsed: any[];
-  hints: {
-    food: FoodItem;
-    measures: {
-      uri: string;
-      label: string;
-      weight: number;
-    }[];
-  }[];
+  common: FoodItem[];
+  branded: FoodItem[];
 }
 
 /**
@@ -44,13 +45,14 @@ export const searchFoodItems = async (query: string): Promise<FoodItem[]> => {
   try {
     if (!query.trim()) return [];
     
-    const params = new URLSearchParams({
-      app_id: APP_ID,
-      app_key: APP_KEY,
-      ingr: query,
+    const response = await fetch(`${BASE_URL}/search/instant?query=${encodeURIComponent(query)}`, {
+      method: 'GET',
+      headers: {
+        'x-app-id': API_ID,
+        'x-app-key': API_KEY,
+        'Content-Type': 'application/json'
+      }
     });
-    
-    const response = await fetch(`${BASE_URL}/parser?${params.toString()}`);
     
     if (!response.ok) {
       throw new Error(`API error: ${response.status}`);
@@ -58,8 +60,8 @@ export const searchFoodItems = async (query: string): Promise<FoodItem[]> => {
     
     const data: SearchResponse = await response.json();
     
-    // Transform the response into a simpler format
-    return data.hints.map(item => item.food);
+    // Combine common and branded foods, but prioritize common foods
+    return [...data.common, ...data.branded];
   } catch (error) {
     console.error('Error searching for food:', error);
     throw error;
@@ -68,38 +70,21 @@ export const searchFoodItems = async (query: string): Promise<FoodItem[]> => {
 
 /**
  * Get detailed nutrition information for a food item
- * @param foodId Food ID from the search results
- * @param measure Measure URI (optional)
- * @param quantity Quantity (optional, default 1)
+ * @param query Food name or description
  * @returns Promise with nutrition details
  */
-export const getNutritionDetails = async (
-  foodId: string,
-  measureURI?: string,
-  quantity: number = 1
-) => {
+export const getNutritionDetails = async (query: string) => {
   try {
-    const params = new URLSearchParams({
-      app_id: APP_ID,
-      app_key: APP_KEY,
-    });
-    
-    const body = {
-      ingredients: [
-        {
-          quantity,
-          measureURI: measureURI || 'http://www.edamam.com/ontologies/edamam.owl#Measure_unit',
-          foodId,
-        },
-      ],
-    };
-    
-    const response = await fetch(`${BASE_URL}/nutrients?${params.toString()}`, {
+    const response = await fetch(`${BASE_URL}/natural/nutrients`, {
       method: 'POST',
       headers: {
-        'Content-Type': 'application/json',
+        'x-app-id': API_ID,
+        'x-app-key': API_KEY,
+        'Content-Type': 'application/json'
       },
-      body: JSON.stringify(body),
+      body: JSON.stringify({
+        query: query
+      })
     });
     
     if (!response.ok) {
@@ -120,14 +105,14 @@ export const getNutritionDetails = async (
  */
 export const formatFoodData = (foodItem: FoodItem) => {
   return {
-    name: foodItem.label,
-    calories: Math.round(foodItem.nutrients.ENERC_KCAL || 0),
-    protein: Math.round(foodItem.nutrients.PROCNT || 0),
-    carbs: Math.round(foodItem.nutrients.CHOCDF || 0),
-    fat: Math.round(foodItem.nutrients.FAT || 0),
+    name: `${foodItem.food_name} (${foodItem.serving_qty} ${foodItem.serving_unit})`,
+    calories: Math.round(foodItem.nf_calories || 0),
+    protein: Math.round(foodItem.nf_protein || 0),
+    carbs: Math.round(foodItem.nf_total_carbohydrate || 0),
+    fat: Math.round(foodItem.nf_total_fat || 0),
     time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
     mealType: 'snacks' as 'breakfast' | 'lunch' | 'dinner' | 'snacks',
     id: Date.now(),
-    image: foodItem.image,
+    image: foodItem.photo?.thumb,
   };
 };
