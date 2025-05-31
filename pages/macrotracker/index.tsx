@@ -1,4 +1,4 @@
-import React, { useState } from 'react'
+import React, { useState, useEffect } from 'react'
 import { CalendarIcon, PlusCircleIcon, SearchIcon } from 'lucide-react'
 import AuthWrapper from '@/components/AuthWrapper/index'
 // Layout is already provided in _app.tsx
@@ -7,23 +7,20 @@ import { GoalBreakdown } from '@/components/macros/GoalBreakdown'
 import { FoodLog } from '@/components/macros/FoodLog'
 import { Header } from '@/components/macros/Header'
 import { MotivationalText } from '@/components/macros/MotivationalText'
+import FoodSearch from '@/components/macros/FoodSearch'
 
 export default function MacroTracker() {
   const [date, setDate] = useState(new Date())
-  // Sample data for the tracker
+  // Daily goals for the tracker
   const dailyGoals = {
     calories: 2000,
     protein: 150,
     carbs: 200,
     fat: 65,
   }
-  const consumed = {
-    calories: 1450,
-    protein: 125,
-    carbs: 130,
-    fat: 45,
-  }
-  const foodItems = [
+  
+  // State for food items and consumed macros
+  const [foodItems, setFoodItems] = useState([
     {
       id: 1,
       name: 'Grilled Chicken Breast',
@@ -74,7 +71,42 @@ export default function MacroTracker() {
       time: '7:00 PM',
       mealType: 'dinner' as 'dinner',
     },
-  ]
+  ])
+  
+  // Calculate consumed macros based on food items
+  const [consumed, setConsumed] = useState({
+    calories: 0,
+    protein: 0,
+    carbs: 0,
+    fat: 0,
+  })
+  
+  // Update consumed macros whenever food items change
+  useEffect(() => {
+    const totals = foodItems.reduce(
+      (acc, item) => {
+        return {
+          calories: acc.calories + item.calories,
+          protein: acc.protein + item.protein,
+          carbs: acc.carbs + item.carbs,
+          fat: acc.fat + item.fat,
+        }
+      },
+      { calories: 0, protein: 0, carbs: 0, fat: 0 }
+    )
+    
+    setConsumed(totals)
+  }, [foodItems])
+  
+  // Handle adding a new food item
+  const handleAddFood = (newFood: any) => {
+    setFoodItems([...foodItems, newFood])
+  }
+  
+  // Handle removing a food item
+  const handleRemoveFood = (id: number) => {
+    setFoodItems(foodItems.filter(item => item.id !== id))
+  }
 
   return (
     <AuthWrapper>
@@ -89,25 +121,18 @@ export default function MacroTracker() {
           </div>
           <div className="mt-8 flex items-center justify-between">
             <h2 className="text-xl font-semibold">Today's Food</h2>
-            <div className="flex space-x-2">
-              <button className="flex items-center bg-[#60A5FA] hover:bg-blue-600 text-white py-2 px-4 rounded-lg transition-colors">
-                <PlusCircleIcon className="w-5 h-5 mr-2" />
-                Quick Add
-              </button>
+            <div className="flex items-center space-x-2">
+              <div className="text-sm text-gray-400">
+                <span className="text-white font-medium">{foodItems.length}</span> items
+              </div>
             </div>
           </div>
-          <div className="mt-4 relative">
-            <div className="relative">
-              <input
-                type="text"
-                placeholder="Search foods..."
-                className="w-full px-4 py-3 pl-10 bg-[#1E1E1E] border border-gray-700 rounded-lg focus:outline-none focus:ring-1 focus:ring-[#4ADE80]"
-              />
-              <SearchIcon className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
-            </div>
-          </div>
+          
+          {/* Food Search with Edamam API */}
+          <FoodSearch onAddFood={handleAddFood} />
+          
           <div className="mt-6">
-            <FoodLog foodItems={foodItems} />
+            <FoodLog foodItems={foodItems} onRemoveFood={handleRemoveFood} />
           </div>
         </div>
     </AuthWrapper>

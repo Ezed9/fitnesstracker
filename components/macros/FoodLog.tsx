@@ -12,11 +12,13 @@ interface FoodItem {
 }
 interface FoodLogProps {
   foodItems: FoodItem[]
+  onRemoveFood?: (id: number) => void
 }
 const MealSection: React.FC<{
   title: string
   items: FoodItem[]
-}> = ({ title, items }) => {
+  onRemoveFood?: (id: number) => void
+}> = ({ title, items, onRemoveFood }) => {
   if (items.length === 0) return null
   return (
     <div className="mb-6">
@@ -36,7 +38,10 @@ const MealSection: React.FC<{
                 <h4 className="font-medium">{item.name}</h4>
                 <p className="text-sm text-gray-400">{item.time}</p>
               </div>
-              <button className="text-gray-400 hover:text-red-500">
+              <button 
+                onClick={() => onRemoveFood && onRemoveFood(item.id)}
+                className="text-gray-400 hover:text-red-500"
+              >
                 <Trash2Icon className="w-5 h-5" />
               </button>
             </div>
@@ -129,7 +134,10 @@ const MealSection: React.FC<{
                   <div className="text-sm text-gray-400">{item.time}</div>
                 </td>
                 <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                  <button className="text-gray-400 hover:text-red-500">
+                  <button 
+                    onClick={() => onRemoveFood && onRemoveFood(item.id)}
+                    className="text-gray-400 hover:text-red-500"
+                  >
                     <Trash2Icon className="w-5 h-5" />
                   </button>
                 </td>
@@ -141,7 +149,7 @@ const MealSection: React.FC<{
     </div>
   )
 }
-export const FoodLog: React.FC<FoodLogProps> = ({ foodItems }) => {
+export const FoodLog: React.FC<FoodLogProps> = ({ foodItems, onRemoveFood }) => {
   const mealTypes = ['breakfast', 'lunch', 'dinner', 'snacks'] as const
   const foodByMeal = mealTypes.reduce(
     (acc, mealType) => {
@@ -157,6 +165,7 @@ export const FoodLog: React.FC<FoodLogProps> = ({ foodItems }) => {
           key={mealType}
           title={mealType}
           items={foodByMeal[mealType]}
+          onRemoveFood={onRemoveFood}
         />
       ))}
     </div>
