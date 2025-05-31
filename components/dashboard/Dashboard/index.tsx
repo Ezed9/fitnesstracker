@@ -4,6 +4,9 @@ import { MacroCard } from '../MacroCard'
 import { WorkoutCard } from '../WorkoutCard'
 import { MotivationalText } from '../MotivationalText'
 import { BodyWeightGraph } from '../BodyWeightGraph'
+import Calendar from '@/components/Calendar/Calendar'
+import { workoutData, splitColors } from '@/components/mockData'
+import QuickAddFood from '../QuickAddFood'
 
 export default function Dashboard() {
   // Sample data - in a real app this would come from API or state management
@@ -205,6 +208,8 @@ export default function Dashboard() {
                 <span>Last updated: Just now</span>
               </div>
             </div>
+
+            {/* Macros Section - Keep at top */}
             <section className="mb-8">
               <h2 className="text-xl font-medium mb-4 text-[#A1A1AA]">
                 Today's Macros
@@ -248,6 +253,8 @@ export default function Dashboard() {
                 />
               </div>
             </section>
+
+            {/* Weight Progress */}
             <section className="mb-8">
               <h2 className="text-xl font-medium mb-4 text-[#A1A1AA]">
                 Weight Progress
@@ -266,13 +273,42 @@ export default function Dashboard() {
                 </div>
               </div>
             </section>
+
+            {/* Motivational Text */}
             <MotivationalText percentage={80} nutrient="protein" />
-            <section className="mt-8">
-              <h2 className="text-xl font-medium mb-4 text-[#A1A1AA]">
-                Next Workout
-              </h2>
-              <WorkoutCard workout={nextWorkout} />
-            </section>
+
+            {/* Calendar and Next Workout side by side */}
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mt-8">
+              <div>
+                {/* Calendar Section - smaller size */}
+                <section>
+                  <h2 className="text-xl font-medium mb-4 text-[#A1A1AA]">
+                    Workout Calendar
+                  </h2>
+                  <div className="transform scale-95 origin-top-left">
+                    <Calendar workoutData={workoutData} splitColors={splitColors} />
+                  </div>
+                </section>
+              </div>
+              
+              <div>
+                {/* Next Workout */}
+                <section>
+                  <h2 className="text-xl font-medium mb-4 text-[#A1A1AA]">
+                    Next Workout
+                  </h2>
+                  <WorkoutCard workout={nextWorkout} />
+                </section>
+                
+                {/* Quick Add Food Section */}
+                <section className="mt-8">
+                  <h2 className="text-xl font-medium mb-4 text-[#A1A1AA]">
+                    Quick Add Food
+                  </h2>
+                  <QuickAddFood />
+                </section>
+              </div>
+            </div>
           </main>
         </div>
       </div>
