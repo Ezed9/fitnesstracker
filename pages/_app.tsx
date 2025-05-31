@@ -7,6 +7,7 @@ import { useRouter } from 'next/router'
 import { useRouteChangeHandler } from '../hooks/useRouteChangeHandler'
 import ErrorPage from 'next/error'
 import Layout from '@/components/layout/Layout'
+import { SupabaseProvider } from '@/contexts/SupabaseContext'
 
 type ErrorBoundaryProps = {
   error: Error | null
@@ -77,8 +78,8 @@ export function reportWebVitals(metric: NextWebVitalsMetric) {
 export default function App({ Component, pageProps, err }: AppProps & { err?: Error }) {
   const router = useRouter()
   const [supabaseClient] = useState(() => createBrowserClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL || '',
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || ''
+    process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://pcurktgrhgvlxlewnnph.supabase.co',
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InBjdXJrdGdyaGd2bHhsZXdubnBoIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDc1Njk2ODYsImV4cCI6MjA2MzE0NTY4Nn0.OCzhuqtCtkgNPDyd-qUnJP1t6bzHFpOWgkZ-PXf9Fpc'
   ))
   
   // Use the route change handler to suppress route cancellation errors
@@ -187,15 +188,20 @@ export default function App({ Component, pageProps, err }: AppProps & { err?: Er
   // Don't wrap auth pages with Layout
   const isAuthPage = ['/login', '/signup'].includes(router.pathname);
 
+  // Create a context value that includes the Supabase client
+  const supabaseContextValue = { supabase: supabaseClient };
+
   return (
     <ErrorBoundary error={err || null}>
-      {isAuthPage ? (
-        <Component {...pageProps} err={err} supabase={supabaseClient} />
-      ) : (
-        <Layout>
+      <SupabaseProvider supabase={supabaseClient}>
+        {isAuthPage ? (
           <Component {...pageProps} err={err} supabase={supabaseClient} />
-        </Layout>
-      )}
+        ) : (
+          <Layout>
+            <Component {...pageProps} err={err} supabase={supabaseClient} />
+          </Layout>
+        )}
+      </SupabaseProvider>
     </ErrorBoundary>
   )
 }
