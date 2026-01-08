@@ -1,6 +1,6 @@
 import { useEffect } from 'react'
 import { useAuthStore } from '@/store/auth-store'
-import { supabase } from '@/utils/supabase'
+import { useSupabase } from '@/contexts/SupabaseContext'
 
 interface AuthProviderProps {
   children: React.ReactNode
@@ -8,12 +8,19 @@ interface AuthProviderProps {
 
 export function AuthProvider({ children }: AuthProviderProps) {
   const setUser = useAuthStore((state) => state.setUser)
+  const supabase = useSupabase()
 
   useEffect(() => {
-    // Get initial session
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setUser(session?.user ?? null)
-    })
+    const getInitialSession = async () => {
+      try {
+        const { data: { session } } = await supabase.auth.getSession()
+        setUser(session?.user ?? null)
+      } catch (error) {
+        console.error('Error checking auth session:', error)
+      }
+    }
+
+    getInitialSession()
 
     // Listen for auth changes
     const {
@@ -25,7 +32,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
     return () => {
       subscription.unsubscribe()
     }
-  }, [setUser])
+  }, [setUser, supabase])
 
   return <>{children}</>
 } 

@@ -1,17 +1,9 @@
-import { createClient } from '@supabase/supabase-js';
+import { SupabaseClient } from '@supabase/supabase-js';
 
-// Initialize Supabase client
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://pcurktgrhgvlxlewnnph.supabase.co';
-const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InBjdXJrdGdyaGd2bHhsZXdubnBoIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDc1Njk2ODYsImV4cCI6MjA2MzE0NTY4Nn0.OCzhuqtCtkgNPDyd-qUnJP1t6bzHFpOWgkZ-PXf9Fpc';
+// We'll no longer create a default Supabase client here
+// Instead, we'll require the client to be passed to each function
 
-// Validate Supabase credentials
-if (!supabaseUrl || !supabaseAnonKey) {
-  throw new Error('Missing Supabase environment variables');
-}
-
-const supabase = createClient(supabaseUrl, supabaseAnonKey);
-
-export { supabase };
+// Types
 
 // Types
 export interface MacroGoals {
@@ -64,16 +56,23 @@ export interface DailyNutrition {
 }
 
 // User Macro Goals
-export const getUserMacroGoals = async (customClient?: any): Promise<MacroGoals | null> => {
-  const client = customClient || supabase;
-  // Get current user
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) return null;
+export const getUserMacroGoals = async (supabase: SupabaseClient): Promise<MacroGoals | null> => {
+  if (!supabase) {
+    throw new Error('Supabase client is required');
+  }
 
-  const { data, error } = await client
+  // Get current user session
+  const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+
+  if (sessionError || !session?.user) {
+    console.error('Error getting user session:', sessionError);
+    throw new Error('You must be logged in to view macro goals');
+  }
+
+  const { data, error } = await supabase
     .from('user_macro_goals')
     .select('*')
-    .eq('user_id', user.id)
+    .eq('user_id', session.user.id)
     .single();
 
   if (error) {
@@ -84,15 +83,23 @@ export const getUserMacroGoals = async (customClient?: any): Promise<MacroGoals 
   return data;
 };
 
-export const saveUserMacroGoals = async (goals: MacroGoals): Promise<boolean> => {
-  // Get current user
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) return false;
+export const saveUserMacroGoals = async (supabase: SupabaseClient, goals: MacroGoals): Promise<boolean> => {
+  if (!supabase) {
+    throw new Error('Supabase client is required');
+  }
+
+  // Get current user session
+  const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+
+  if (sessionError || !session?.user) {
+    console.error('Error getting user session:', sessionError);
+    throw new Error('You must be logged in to save macro goals');
+  }
 
   const { error } = await supabase
     .from('user_macro_goals')
     .upsert({
-      user_id: user.id,
+      user_id: session.user.id,
       calories: goals.calories,
       protein: goals.protein,
       carbs: goals.carbs,
@@ -108,15 +115,24 @@ export const saveUserMacroGoals = async (goals: MacroGoals): Promise<boolean> =>
 };
 
 // Food Items
-export const saveFoodItem = async (foodItem: FoodItem, customClient?: any): Promise<string | undefined> => {
-  const client = customClient || supabase;
-  // Get current user
-  const { data: { user } } = await client.auth.getUser();
-  if (!user) return undefined;
+export const saveFoodItem = async (supabase: SupabaseClient, foodItem: FoodItem): Promise<string | undefined> => {
+  if (!supabase) {
+    throw new Error('Supabase client is required');
+  }
+
+  // Get current user session
+  const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+
+  if (sessionError || !session?.user) {
+    console.error('Error getting user session:', sessionError);
+    throw new Error('You must be logged in to save food items');
+  }
+
+  const userId = session.user.id;
 
   try {
     // Check if this food item already exists
-    const { data: existingItems } = await client
+    const { data: existingItems } = await supabase
       .from('food_items')
       .select('id')
       .eq('name', foodItem.name)
@@ -140,7 +156,7 @@ export const saveFoodItem = async (foodItem: FoodItem, customClient?: any): Prom
       image_url: foodItem.image_url,
       source: foodItem.source || 'user_created',
       source_id: foodItem.source_id || null,
-      created_by: user.id
+      created_by: userId
     };
 
     // Only include serving_size if it exists in the foodItem
@@ -149,7 +165,7 @@ export const saveFoodItem = async (foodItem: FoodItem, customClient?: any): Prom
     }
 
     console.log('Inserting new food item:', foodItemData);
-    const { data, error } = await client
+    const { data, error } = await supabase
       .from('food_items')
       .insert(foodItemData)
       .select('id')
@@ -169,25 +185,31 @@ export const saveFoodItem = async (foodItem: FoodItem, customClient?: any): Prom
 };
 
 // Food Logs
-export const getFoodLogs = async (date: string, customClient?: any): Promise<FoodLogEntry[]> => {
-  const client = customClient || supabase;
-  console.log('Fetching food logs for date:', date);
-  
-  // Get current user
-  const { data: { user } } = await client.auth.getUser();
-  if (!user) {
-    console.log('No authenticated user found');
-    return [];
+export const getFoodLogs = async (supabase: SupabaseClient, date: string): Promise<FoodLogEntry[]> => {
+  if (!supabase) {
+    throw new Error('Supabase client is required');
   }
 
-  console.log('Querying food_logs table for user:', user.id, 'and date:', date);
-  const { data, error } = await client
+  console.log('Fetching food logs for date:', date);
+
+  // Get current user session
+  const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+
+  if (sessionError || !session?.user) {
+    console.error('Error getting user session:', sessionError);
+    throw new Error('You must be logged in to view food logs');
+  }
+
+  const userId = session.user.id;
+  console.log('Querying food_logs table for user:', userId, 'and date:', date);
+
+  const { data, error } = await supabase
     .from('food_logs')
     .select(`
       *,
       food_items(name, image_url)
     `)
-    .eq('user_id', user.id)
+    .eq('user_id', userId)
     .eq('log_date', date)
     .order('log_time', { ascending: true });
 
@@ -197,7 +219,7 @@ export const getFoodLogs = async (date: string, customClient?: any): Promise<Foo
   }
 
   console.log('Raw food logs from Supabase:', data);
-  
+
   // Format the data to include food name and image
   const formattedLogs = data.map((item: any) => {
     // Ensure meal_type is valid
@@ -206,112 +228,138 @@ export const getFoodLogs = async (date: string, customClient?: any): Promise<Foo
       console.warn(`Invalid meal_type found in database: ${item.meal_type}, defaulting to 'snacks'`);
       item.meal_type = 'snacks';
     }
-    
+
     console.log(`Processing log item: id=${item.id}, meal_type=${item.meal_type}, food_name=${item.food_items?.name || item.food_name || 'Unknown'}`);
-    
+
     return {
       ...item,
       food_name: item.food_items?.name || item.food_name || 'Unknown Food',
       image_url: item.food_items?.image_url || ''
     };
   });
-  
+
   console.log('Returning formatted logs:', formattedLogs);
   return formattedLogs;
 };
 
-export const addFoodLog = async (foodLog: FoodLogEntry, customClient?: any): Promise<string | undefined> => {
-  const client = customClient || supabase;
-  console.log('Adding food log with meal_type:', foodLog.meal_type);
-  
+export const addFoodLog = async (supabase: SupabaseClient, foodLog: FoodLogEntry): Promise<string | undefined> => {
   try {
-    // Validate meal type
-    const validMealTypes = ['breakfast', 'lunch', 'dinner', 'snacks'];
-    const mealType = validMealTypes.includes(foodLog.meal_type) 
-      ? foodLog.meal_type 
-      : 'snacks';
-    
-    if (foodLog.meal_type !== mealType) {
-      console.warn(`Invalid meal_type: ${foodLog.meal_type}, defaulting to 'snacks'`);
-    }
-    
-    // Get current user
-    const { data: { user }, error: userError } = await client.auth.getUser();
-    if (userError || !user) {
-      console.error('No authenticated user found:', userError?.message || 'User not found');
-      return undefined;
+    if (!supabase) {
+      throw new Error('Supabase client is required');
     }
 
-    // Create the food log entry object
-    const foodLogData: any = {
-      user_id: user.id,
-      food_item_id: foodLog.food_item_id || null, // Explicitly set to null if undefined
+    console.log('[addFoodLog] Starting to add food log:', {
+      food_name: foodLog.food_name,
+      meal_type: foodLog.meal_type,
+      log_date: foodLog.log_date,
+      has_image: !!foodLog.image_url
+    });
+
+    // Validate and normalize meal type
+    const validMealTypes = ['breakfast', 'lunch', 'dinner', 'snacks'] as const;
+    const mealType = validMealTypes.includes(foodLog.meal_type as any)
+      ? foodLog.meal_type
+      : 'snacks';
+
+    if (foodLog.meal_type !== mealType) {
+      console.warn(`[addFoodLog] Invalid meal_type: ${foodLog.meal_type}, defaulting to 'snacks'`);
+    }
+
+    // Get current user session
+    console.log('[addFoodLog] Attempting to get session...');
+    const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+
+    if (sessionError) {
+      console.error('[addFoodLog] Error getting session:', sessionError);
+      throw new Error(`Session error: ${sessionError.message}`);
+    }
+
+    console.log('[addFoodLog] Session data:', {
+      hasSession: !!session,
+      hasUser: !!session?.user,
+      userId: session?.user?.id
+    });
+
+    if (!session?.user) {
+      throw new Error('You must be logged in to add food');
+    }
+
+    // Prepare the food log data with proper types and defaults
+    const notes = foodLog.notes || '';
+    const notesWithServing = foodLog.serving_size && !notes.includes('Serving:')
+      ? `${notes}${notes ? ' ' : ''}(Serving: ${foodLog.serving_size})`.trim()
+      : notes;
+
+    const foodLogData = {
+      food_item_id: foodLog.food_item_id ?? null,
       log_date: foodLog.log_date || new Date().toISOString().split('T')[0],
       meal_type: mealType,
-      servings: foodLog.servings || 1,
-      calories: foodLog.calories || 0,
-      protein: foodLog.protein || 0,
-      carbs: foodLog.carbs || 0,
-      fats: foodLog.fats || 0,
+      servings: foodLog.servings ?? 1,
+      calories: foodLog.calories ?? 0,
+      protein: foodLog.protein ?? 0,
+      carbs: foodLog.carbs ?? 0,
+      fats: foodLog.fats ?? 0,
       food_name: foodLog.food_name || 'Unknown Food',
-      log_time: foodLog.log_time || new Date().toISOString(),
-      notes: foodLog.notes || ''
+      log_time: foodLog.log_time || new Date().toTimeString().substring(0, 5),
+      notes: notesWithServing,
+      image_url: foodLog.image_url ?? null,
+      serving_size: foodLog.serving_size || null,
+      user_id: session.user.id // Add user_id from the session
     };
-    
-    // Add serving size to notes if provided
-    if (foodLog.serving_size) {
-      foodLogData.notes = `${
-        foodLogData.notes ? `${foodLogData.notes} ` : ''
-      }(Serving: ${foodLog.serving_size})`.trim();
-      
-      // Try to add serving_size to the object, but it might fail if the column doesn't exist
-      try {
-        foodLogData.serving_size = foodLog.serving_size;
-      } catch (e) {
-        console.log('Note: serving_size column may not exist in database schema');
-      }
-    }
-    
-    console.log('Inserting food log into Supabase with data:', JSON.stringify({
+
+    // Log the prepared data (truncate long notes for logging)
+    const notesForLog = foodLogData.notes.length > 100
+      ? `${foodLogData.notes.substring(0, 100)}...`
+      : foodLogData.notes;
+
+    console.log('[addFoodLog] Prepared food log data:', {
       ...foodLogData,
-      // Don't log the entire notes if it's too long
-      notes: foodLogData.notes.length > 100 
-        ? `${foodLogData.notes.substring(0, 100)}...` 
-        : foodLogData.notes
-    }, null, 2));
-    
-    console.log('Executing Supabase insert...');
-    const { data, error } = await client
+      notes: notesForLog
+    });
+
+    // Execute the insert
+    const { data: result, error: insertError } = await supabase
       .from('food_logs')
       .insert(foodLogData)
       .select('id')
       .single();
-    
-    if (error) {
-      console.error('Error adding food log:', error);
-      console.error('Error details:', {
-        code: error.code,
-        message: error.message,
-        details: error.details,
-        hint: error.hint,
+
+    if (insertError) {
+      console.error('[addFoodLog] Database error:', {
+        code: insertError.code,
+        message: insertError.message,
+        details: insertError.details,
+        hint: insertError.hint
       });
-      return undefined;
+
+      // Handle specific error cases
+      if (insertError.code === '23505') { // Unique violation
+        throw new Error('This food entry already exists');
+      } else if (insertError.code === '23503') { // Foreign key violation
+        throw new Error('Invalid food item reference');
+      } else {
+        throw new Error('Failed to save food log. Please try again.');
+      }
     }
-    
-    console.log('Successfully added food log with ID:', data?.id);
-    return data?.id as string;
+
+    console.log(`[addFoodLog] Successfully added food log with ID: ${result?.id}`);
+    return result?.id;
+
   } catch (error) {
-    console.error('Unexpected error in addFoodLog:', error);
-    return undefined;
+    console.error('[addFoodLog] Unexpected error:', error);
+    throw error; // Re-throw to allow callers to handle the error
   }
 };
 
-export const removeFoodLog = async (logId: string, customClient?: any): Promise<boolean> => {
-  const client = customClient || supabase;
-  const { error } = await client
+export const removeFoodLog = async (supabase: SupabaseClient, logId: string): Promise<boolean> => {
+  if (!supabase) {
+    throw new Error('Supabase client is required');
+  }
+
+  const { error } = await supabase
     .from('food_logs')
     .delete()
-    .match({ id: logId });
+    .eq('id', logId);
 
   if (error) {
     console.error('Error removing food log:', error);
@@ -322,15 +370,23 @@ export const removeFoodLog = async (logId: string, customClient?: any): Promise<
 };
 
 // Daily Nutrition Summary
-export const getDailyNutrition = async (date: string): Promise<DailyNutrition | null> => {
-  // Get current user
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) return null;
+export const getDailyNutrition = async (supabase: SupabaseClient, date: string): Promise<DailyNutrition | null> => {
+  if (!supabase) {
+    throw new Error('Supabase client is required');
+  }
+
+  // Get current user session
+  const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+
+  if (sessionError || !session?.user) {
+    console.error('Error getting user session:', sessionError);
+    throw new Error('You must be logged in to view daily nutrition');
+  }
 
   const { data, error } = await supabase
     .from('user_daily_nutrition')
     .select('*')
-    .eq('user_id', user.id)
+    .eq('user_id', session.user.id)
     .eq('log_date', date)
     .single();
 
@@ -350,4 +406,43 @@ export const getDailyNutrition = async (date: string): Promise<DailyNutrition | 
   }
 
   return data;
+};
+
+export const getWeightHistory = async (supabase: SupabaseClient): Promise<{ date: string, weight: number }[]> => {
+  const { data: { session } } = await supabase.auth.getSession();
+  if (!session) return [];
+
+  const { data, error } = await supabase
+    .from('weight_entries')
+    .select('date, weight')
+    .eq('user_id', session.user.id)
+    .order('date', { ascending: true })
+    .limit(30);
+
+  if (error) {
+    console.error('Error fetching weight history:', error);
+    return [];
+  }
+
+  return data;
+};
+
+export const saveWeightEntry = async (supabase: SupabaseClient, weight: number, date: string): Promise<boolean> => {
+  const { data: { session } } = await supabase.auth.getSession();
+  if (!session) throw new Error('Not authenticated');
+
+  const { error } = await supabase
+    .from('weight_entries')
+    .insert({
+      user_id: session.user.id,
+      weight,
+      date
+    });
+
+  if (error) {
+    console.error('Error saving weight entry:', error);
+    return false;
+  }
+
+  return true;
 };

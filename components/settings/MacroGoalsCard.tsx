@@ -1,7 +1,10 @@
 import React, { useState, useEffect } from 'react'
 import { FlameIcon, BarChartIcon, SaveIcon, CheckIcon } from 'lucide-react'
 import { getUserMacroGoals, saveUserMacroGoals, MacroGoals } from '@/services/supabaseService'
+import { useSupabase } from '@/contexts/SupabaseContext'
+
 export function MacroGoalsCard() {
+  const supabase = useSupabase()
   const [macroGoals, setMacroGoals] = useState<MacroGoals>({
     calories: 2400,
     protein: 180,
@@ -16,7 +19,7 @@ export function MacroGoalsCard() {
     // Fetch user's macro goals from Supabase
     const fetchMacroGoals = async () => {
       setLoading(true)
-      const goals = await getUserMacroGoals()
+      const goals = await getUserMacroGoals(supabase)
       if (goals) {
         setMacroGoals(goals)
       }
@@ -24,7 +27,7 @@ export function MacroGoalsCard() {
     }
 
     fetchMacroGoals()
-  }, [])
+  }, [supabase])
 
   const handleInputChange = (field: keyof MacroGoals, value: string) => {
     setMacroGoals(prev => ({
@@ -36,9 +39,9 @@ export function MacroGoalsCard() {
   const handleSave = async () => {
     setSaving(true)
     setSaveSuccess(false)
-    
-    const success = await saveUserMacroGoals(macroGoals)
-    
+
+    const success = await saveUserMacroGoals(supabase, macroGoals)
+
     setSaving(false)
     if (success) {
       setSaveSuccess(true)
@@ -48,14 +51,14 @@ export function MacroGoalsCard() {
   }
 
   // Calculate macro split percentages
-  const totalCaloriesFromMacros = 
-    (macroGoals.protein * 4) + 
-    (macroGoals.carbs * 4) + 
+  const totalCaloriesFromMacros =
+    (macroGoals.protein * 4) +
+    (macroGoals.carbs * 4) +
     (macroGoals.fats * 9)
-  
-  const proteinPercentage = Math.round((macroGoals.protein * 4 / totalCaloriesFromMacros) * 100) || 0
-  const carbsPercentage = Math.round((macroGoals.carbs * 4 / totalCaloriesFromMacros) * 100) || 0
-  const fatsPercentage = Math.round((macroGoals.fats * 9 / totalCaloriesFromMacros) * 100) || 0
+
+  const proteinPercentage = totalCaloriesFromMacros ? Math.round((macroGoals.protein * 4 / totalCaloriesFromMacros) * 100) : 0
+  const carbsPercentage = totalCaloriesFromMacros ? Math.round((macroGoals.carbs * 4 / totalCaloriesFromMacros) * 100) : 0
+  const fatsPercentage = totalCaloriesFromMacros ? Math.round((macroGoals.fats * 9 / totalCaloriesFromMacros) * 100) : 0
 
   return (
     <div className="bg-[#1E1E1E] rounded-xl p-6 shadow-lg">
@@ -126,7 +129,7 @@ export function MacroGoalsCard() {
               Macro split: {proteinPercentage}% protein, {carbsPercentage}% carbs, {fatsPercentage}% fats
             </p>
           </div>
-          <button 
+          <button
             onClick={handleSave}
             disabled={saving}
             className={`mt-4 w-full px-4 py-2 ${saveSuccess ? 'bg-[#3AC070]' : 'bg-[#4ADE80]'} text-white rounded-lg hover:bg-[#3AC070] transition-colors flex items-center justify-center`}

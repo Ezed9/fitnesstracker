@@ -10,14 +10,14 @@ import { FoodLog } from '@/components/macros/FoodLog';
 import { Header } from '@/components/macros/Header';
 import { MotivationalText } from '@/components/macros/MotivationalText';
 import FoodSearch from '@/components/macros/FoodSearch';
-import { 
-  getUserMacroGoals, 
-  getFoodLogs, 
-  addFoodLog, 
-  removeFoodLog, 
+import {
+  getUserMacroGoals,
+  getFoodLogs,
+  addFoodLog,
+  removeFoodLog,
   saveFoodItem,
-  FoodLogEntry, 
-  MacroGoals 
+  FoodLogEntry,
+  MacroGoals
 } from '@/services/supabaseService';
 
 interface FoodItem {
@@ -46,7 +46,7 @@ const MacroTracker: React.FC<MacroTrackerProps> = ({ supabase }) => {
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [isAddingFood, setIsAddingFood] = useState<boolean>(false);
   const [activeMealType, setActiveMealType] = useState<'breakfast' | 'lunch' | 'dinner' | 'snacks'>('snacks')
-  
+
   // Daily goals for the tracker
   const [dailyGoals, setDailyGoals] = useState({
     calories: 2000,
@@ -54,7 +54,7 @@ const MacroTracker: React.FC<MacroTrackerProps> = ({ supabase }) => {
     carbs: 200,
     fat: 65,
   })
-  
+
   // State for food items and consumed macros
   const [consumed, setConsumed] = useState({
     calories: 0,
@@ -67,16 +67,16 @@ const MacroTracker: React.FC<MacroTrackerProps> = ({ supabase }) => {
   const formatDateForAPI = (date: Date): string => {
     return date.toISOString().split('T')[0];
   };
-  
+
   // Load food logs when date changes
   const fetchFoodLogs = useCallback(async () => {
     try {
       setIsLoading(true);
       const formattedDate = date.toISOString().split('T')[0];
       console.log('Fetching food logs for date:', formattedDate);
-      
-      const logs: FoodLogEntry[] = await getFoodLogs(formattedDate, supabase);
-      
+
+      const logs: FoodLogEntry[] = await getFoodLogs(supabase, formattedDate);
+
       // Transform logs to match the FoodLogEntry type
       const transformedLogs: FoodLogEntry[] = logs.map(log => ({
         id: log.id || '',
@@ -95,7 +95,7 @@ const MacroTracker: React.FC<MacroTrackerProps> = ({ supabase }) => {
         serving_size: log.serving_size || '1 serving',
         created_at: log.created_at || new Date().toISOString()
       }));
-      
+
       // Group logs by meal type
       const logsByMealType: Record<string, FoodLogEntry[]> = {};
       transformedLogs.forEach(log => {
@@ -104,10 +104,10 @@ const MacroTracker: React.FC<MacroTrackerProps> = ({ supabase }) => {
         }
         logsByMealType[log.meal_type].push(log);
       });
-      
+
       setFoodLogs(logsByMealType);
       console.log('Updated foodLogs state with new data:', logsByMealType);
-      
+
     } catch (error) {
       console.error('Error fetching food logs:', error);
       toast.error('Failed to load food logs');
@@ -119,20 +119,20 @@ const MacroTracker: React.FC<MacroTrackerProps> = ({ supabase }) => {
   useEffect(() => {
     fetchFoodLogs();
   }, [fetchFoodLogs]);
-  
+
   // Listen for food log updates from other components (like QuickAddFood)
   useEffect(() => {
     const handleFoodLogsUpdated = (event: Event) => {
       const customEvent = event as CustomEvent;
       const source = customEvent.detail?.source || 'unknown';
       const timestamp = customEvent.detail?.timestamp || 'unknown';
-      
+
       console.log(`[${new Date().toISOString()}] Received foodLogsUpdated event`, {
         source,
         timestamp,
         currentMealType: activeMealType
       });
-      
+
       // Force a refresh of the food logs
       fetchFoodLogs().then(() => {
         console.log('Successfully refreshed food logs after update');
@@ -140,10 +140,10 @@ const MacroTracker: React.FC<MacroTrackerProps> = ({ supabase }) => {
         console.error('Error refreshing food logs after update:', error);
       });
     };
-    
+
     // Add the event listener
     window.addEventListener('foodLogsUpdated', handleFoodLogsUpdated as EventListener);
-    
+
     // Clean up the event listener when the component unmounts
     return () => {
       window.removeEventListener('foodLogsUpdated', handleFoodLogsUpdated as EventListener);
@@ -153,15 +153,15 @@ const MacroTracker: React.FC<MacroTrackerProps> = ({ supabase }) => {
   // Handle adding a new food item
   const handleAddFood = async (food: any) => {
     if (isAddingFood) return; // Prevent multiple submissions
-    
+
     console.log('Starting handleAddFood with food:', {
       ...food,
       // Don't log the entire image if it's too large
       image: food.image_url ? '[image data]' : undefined
     });
-    
+
     setIsAddingFood(true);
-    
+
     try {
       // Prepare the food log data first
       const foodLogData: Omit<FoodLogEntry, 'id' | 'created_at' | 'user_id'> = {
@@ -179,17 +179,17 @@ const MacroTracker: React.FC<MacroTrackerProps> = ({ supabase }) => {
         food_item_id: null,
         image_url: food.image_url || null
       };
-      
+
       // Ensure notes is defined
       const notes = foodLogData.notes || '';
-      
+
       console.log('Prepared food log data:', foodLogData);
-      
+
       // Only try to save the food item if we have enough information
       if (food.name && (food.source_id || food.id)) {
         console.log('Saving food item first...');
         try {
-          const savedFoodItem = await saveFoodItem({
+          const savedFoodItem = await saveFoodItem(supabase, {
             name: food.name,
             calories: food.calories || 0,
             protein: food.protein || 0,
@@ -199,8 +199,8 @@ const MacroTracker: React.FC<MacroTrackerProps> = ({ supabase }) => {
             source: food.source || 'user_created',
             source_id: food.source_id || (typeof food.id === 'string' ? food.id : undefined),
             ...(food.servingSize && { serving_size: food.servingSize })
-          }, supabase);
-          
+          });
+
           if (savedFoodItem) {
             console.log('Saved food item with ID:', savedFoodItem);
             foodLogData.food_item_id = savedFoodItem;
@@ -214,17 +214,17 @@ const MacroTracker: React.FC<MacroTrackerProps> = ({ supabase }) => {
       console.log('Adding food log with data:', {
         ...foodLogData,
         // Don't log the entire notes if it's too long
-        notes: notes.length > 50 
-          ? `${notes.substring(0, 50)}...` 
+        notes: notes.length > 50
+          ? `${notes.substring(0, 50)}...`
           : notes
       });
-      
-      const logId = await addFoodLog(foodLogData, supabase);
-      
+
+      const logId = await addFoodLog(supabase, foodLogData);
+
       if (!logId) {
         throw new Error('Failed to add food log');
       }
-      
+
       // Create the new food log entry
       const newFoodLog: FoodLogEntry = {
         ...foodLogData,
@@ -232,7 +232,7 @@ const MacroTracker: React.FC<MacroTrackerProps> = ({ supabase }) => {
         user_id: '', // This will be set by the server
         created_at: new Date().toISOString()
       };
-      
+
       // Update the UI optimistically
       setFoodLogs(prevLogs => ({
         ...prevLogs,
@@ -241,14 +241,14 @@ const MacroTracker: React.FC<MacroTrackerProps> = ({ supabase }) => {
           newFoodLog
         ]
       }));
-      
+
       // Show success message
       toast.success('Food item added successfully!');
-      
+
     } catch (error) {
       console.error('Error adding food:', error);
       toast.error('Failed to add food item. Please try again.');
-      
+
       // Re-fetch the latest data to ensure consistency
       await fetchFoodLogs();
     } finally {
@@ -273,10 +273,10 @@ const MacroTracker: React.FC<MacroTrackerProps> = ({ supabase }) => {
   const handleRemoveFood = async (id: string, mealType: string) => {
     try {
       console.log('Removing food item with ID:', id);
-      
+
       // Remove from database
-      await removeFoodLog(id, supabase);
-      
+      await removeFoodLog(supabase, id);
+
       // Optimistically update the UI
       setFoodLogs(prevLogs => {
         const updatedLogs = { ...prevLogs };
@@ -285,9 +285,9 @@ const MacroTracker: React.FC<MacroTrackerProps> = ({ supabase }) => {
         }
         return updatedLogs;
       });
-      
+
       toast.success('Food item removed successfully!');
-      
+
       // Re-fetch to ensure consistency
       await fetchFoodLogs();
     } catch (error) {
@@ -295,7 +295,7 @@ const MacroTracker: React.FC<MacroTrackerProps> = ({ supabase }) => {
       toast.error('Failed to remove food item');
     }
   };
-  
+
   // Calculate total number of food items across all meal types
   const totalFoodItems = Object.values(foodLogs).reduce(
     (total, logs) => total + (logs?.length || 0), 0
@@ -329,53 +329,53 @@ const MacroTracker: React.FC<MacroTrackerProps> = ({ supabase }) => {
 
   return (
     <AuthWrapper>
-        <div className="container mx-auto px-4 py-6 max-w-4xl">
-          <Header date={date} setDate={setDate} />
-          <MotivationalText consumed={consumed} goals={dailyGoals} />
-          <div className="mt-6">
-            <DailySummary consumed={consumed} goals={dailyGoals} />
-          </div>
-          <div className="mt-8">
-            <GoalBreakdown consumed={consumed} goals={dailyGoals} />
-          </div>
-          <div className="mt-8 flex items-center justify-between">
-            <h2 className="text-xl font-semibold">Today's Food</h2>
-            <div className="flex items-center space-x-2">
-              {isLoading ? (
-                <div className="animate-pulse bg-gray-700 h-5 w-16 rounded"></div>
-              ) : (
-                <div className="text-sm text-gray-400">
-                  <span className="text-white font-medium">{totalFoodItems}</span> items
-                </div>
-              )}
-            </div>
-          </div>
-          
-          {/* Food Search with Spoonacular/USDA API */}
-          <div id="food-search-section" className="mt-6">
-            <FoodSearch 
-              onAddFood={handleAddFood} 
-              defaultMealType={activeMealType}
-              supabase={supabase}
-            />
-          </div>
-          
-          <div className="mt-6">
+      <div className="container mx-auto px-4 py-6 max-w-4xl">
+        <Header date={date} setDate={setDate} />
+        <MotivationalText consumed={consumed} goals={dailyGoals} />
+        <div className="mt-6">
+          <DailySummary consumed={consumed} goals={dailyGoals} />
+        </div>
+        <div className="mt-8">
+          <GoalBreakdown consumed={consumed} goals={dailyGoals} />
+        </div>
+        <div className="mt-8 flex items-center justify-between">
+          <h2 className="text-xl font-semibold">Today's Food</h2>
+          <div className="flex items-center space-x-2">
             {isLoading ? (
-              <div className="animate-pulse space-y-4">
-                <div className="h-16 bg-gray-700 rounded"></div>
-                <div className="h-16 bg-gray-700 rounded"></div>
-                <div className="h-16 bg-gray-700 rounded"></div>
-              </div>
+              <div className="animate-pulse bg-gray-700 h-5 w-16 rounded"></div>
             ) : (
-              <FoodLog 
-                foodLogs={foodLogs} 
-                onRemoveFood={handleRemoveFood}
-                onAddFoodToMeal={handleAddFoodToMeal}
-              />
+              <div className="text-sm text-gray-400">
+                <span className="text-white font-medium">{totalFoodItems}</span> items
+              </div>
             )}
           </div>
         </div>
+
+        {/* Food Search with Spoonacular/USDA API */}
+        <div id="food-search-section" className="mt-6">
+          <FoodSearch
+            onAddFood={handleAddFood}
+            defaultMealType={activeMealType}
+            supabase={supabase}
+          />
+        </div>
+
+        <div className="mt-6">
+          {isLoading ? (
+            <div className="animate-pulse space-y-4">
+              <div className="h-16 bg-gray-700 rounded"></div>
+              <div className="h-16 bg-gray-700 rounded"></div>
+              <div className="h-16 bg-gray-700 rounded"></div>
+            </div>
+          ) : (
+            <FoodLog
+              foodLogs={foodLogs}
+              onRemoveFood={handleRemoveFood}
+              onAddFoodToMeal={handleAddFoodToMeal}
+            />
+          )}
+        </div>
+      </div>
     </AuthWrapper>
   )
 }

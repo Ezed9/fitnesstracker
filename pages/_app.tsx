@@ -77,11 +77,24 @@ export function reportWebVitals(metric: NextWebVitalsMetric) {
 
 export default function App({ Component, pageProps, err }: AppProps & { err?: Error }) {
   const router = useRouter()
-  const [supabaseClient] = useState(() => createBrowserClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://pcurktgrhgvlxlewnnph.supabase.co',
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InBjdXJrdGdyaGd2bHhsZXdubnBoIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDc1Njk2ODYsImV4cCI6MjA2MzE0NTY4Nn0.OCzhuqtCtkgNPDyd-qUnJP1t6bzHFpOWgkZ-PXf9Fpc'
-  ))
-  
+  const [supabaseClient] = useState(() => {
+    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
+    const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+
+    if (!supabaseUrl || !supabaseKey) {
+      console.warn('Supabase credentials missing! Check your .env.local file.')
+      // Return a dummy client or handle gracefully to prevent crash, 
+      // though functionality will be broken.
+      // We can't really return null here as contexts expect a client.
+      // We'll let createBrowserClient attempt with empty strings which might throw 
+      // or we can fallback to the previous hardcoded values FOR NOW just to keep it alive?
+      // No, user wants to use NEW project.
+      return createBrowserClient(supabaseUrl || '', supabaseKey || '')
+    }
+
+    return createBrowserClient(supabaseUrl, supabaseKey)
+  })
+
   // Use the route change handler to suppress route cancellation errors
   useRouteChangeHandler()
 
@@ -92,11 +105,11 @@ export default function App({ Component, pageProps, err }: AppProps & { err?: Er
     const checkAuth = async () => {
       try {
         const { data: { session } } = await supabaseClient.auth.getSession();
-        
+
         // If no session and not on a public route, redirect to login
         if (!session && !['/login', '/signup', '/_error'].includes(router.pathname)) {
           await router.replace('/login');
-        } 
+        }
         // If session exists and on auth pages, redirect to dashboard
         else if (session && ['/login', '/signup', '/', '/_error'].includes(router.pathname)) {
           await router.replace('/dashboard');
@@ -154,11 +167,11 @@ export default function App({ Component, pageProps, err }: AppProps & { err?: Er
     const checkAuth = async () => {
       try {
         const { data: { session } } = await supabaseClient.auth.getSession();
-        
+
         // If no session and not on a public route, redirect to login
         if (!session && !['/login', '/signup'].includes(router.pathname)) {
           router.replace('/login');
-        } 
+        }
         // If session exists and on auth pages, redirect to dashboard
         else if (session && ['/login', '/signup', '/'].includes(router.pathname)) {
           router.replace('/dashboard');

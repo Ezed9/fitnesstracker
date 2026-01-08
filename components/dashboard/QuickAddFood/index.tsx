@@ -1,9 +1,9 @@
-import React, { useState, useEffect, useRef } from 'react'
+import React, { useState, useEffect, useRef, FC } from 'react'
 import { PlusIcon, SearchIcon, XIcon, Loader2Icon, Clock3Icon, MinusIcon } from 'lucide-react'
 import { searchFoodItems, formatFoodData, UnifiedFoodItem } from '@/services/nutritionApi'
 import { addFoodLog, FoodLogEntry } from '@/services/supabaseService'
 import { toast } from 'react-hot-toast'
-import { supabase } from '@/services/supabaseService'
+import { useSupabase } from '@/contexts/SupabaseContext'
 
 interface FoodItem {
   id?: string
@@ -13,7 +13,8 @@ interface FoodItem {
   carbs: number
   fats: number
   image: string
-  servingSize?: string | number
+  servingSize?: string  // Matches UnifiedFoodItem interface
+  servingSizeG?: number // Optional serving size in grams for portion calculations
   source?: 'usda' | 'spoonacular'
 }
 
@@ -35,7 +36,72 @@ const fallbackFoods: FoodItem[] = [
   { name: 'Almonds (28g)', calories: 164, protein: 6, carbs: 6, fats: 14, image: '' },
 ]
 
-export const QuickAddFood: React.FC = () => {
+const QuickAddFood: React.FC = () => {
+  // Get the Supabase client from our context
+  const supabase = useSupabase();
+  
+  // Debug: Log the supabase client to check if it's properly initialized
+  useEffect(() => {
+    const checkSession = async () => {
+      try {
+        console.log('Checking Supabase client in QuickAddFood...');
+        
+        // Try to get the session
+        const { data: { session }, error } = await supabase.auth.getSession();
+        
+        if (error) {
+          console.error('Error getting session in QuickAddFood:', error);
+          toast.error('Authentication error. Please refresh the page or log in again.');
+          return;
+        }
+        
+        console.log('Current session in QuickAddFood:', {
+          hasSession: !!session,
+          userId: session?.user?.id,
+          expiresAt: session?.expires_at
+        });
+        
+        if (!session) {
+          console.error('No active session found in QuickAddFood');
+          toast.error('Please log in to continue');
+        }
+      } catch (error) {
+        console.error('Error in QuickAddFood session check:', error);
+        toast.error('Failed to verify authentication status');
+      }
+    };
+    
+    checkSession();
+    
+    // Set up a listener for auth state changes
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      console.log('Auth state changed in QuickAddFood:', event, session?.user?.id);
+    });
+    
+    return () => {
+      if (subscription) {
+        subscription.unsubscribe();
+      }
+    };
+  }, [supabase]);
+  
+  // Helper function to dispatch the food logs updated event
+  const dispatchFoodLogsUpdatedEvent = () => {
+    console.log('Dispatching foodLogsUpdated event');
+    try {
+      const event = new CustomEvent('foodLogsUpdated', { 
+        detail: { 
+          mealType: 'snacks',
+          timestamp: new Date().toISOString()
+        } 
+      });
+      window.dispatchEvent(event);
+      console.log('Food logs updated event dispatched');
+    } catch (error) {
+      console.error('Error dispatching food logs updated event:', error);
+    }
+  };
+  
   // State for search and results
   const [query, setQuery] = useState('')
   const [searchResults, setSearchResults] = useState<UnifiedFoodItem[]>([])
@@ -130,14 +196,15 @@ export const QuickAddFood: React.FC = () => {
     
     // Convert UnifiedFoodItem to our app's FoodItem format
     const formattedFood: FoodItem = {
-      id: food.id,
+      id: typeof food.id === 'string' ? food.id : String(food.id),
       name: food.name,
       calories: Math.round(food.calories || 0),
       protein: Math.round(food.protein || 0),
       carbs: Math.round(food.carbs || 0),
       fats: Math.round(food.fats || 0),
       image: food.image || '',
-      servingSize: typeof food.servingSize === 'number' ? String(food.servingSize) : food.servingSize,
+      servingSize: food.servingSize, // servingSize is already string | undefined in UnifiedFoodItem
+      servingSizeG: food.servingSizeG, // Add serving size in grams if available
       source: food.source
     };
     
@@ -178,26 +245,29 @@ export const QuickAddFood: React.FC = () => {
     // If it's a unified food item from API, convert it to our app's format
     if ('source' in food && 'id' in food) {
       // It's a UnifiedFoodItem from the API
+      const servingSize = food.servingSize; // This is already string | undefined
       const formattedFood: FoodItem = {
-        id: food.id,
-        name: `${food.name} (${food.servingSize || 'Standard Serving'})`,
+        id: typeof food.id === 'string' ? food.id : String(food.id),
+        name: `${food.name} (${servingSize || 'Standard Serving'})`,
         calories: Math.round(food.calories || 0),
         protein: Math.round(food.protein || 0),
         carbs: Math.round(food.carbs || 0),
         fats: Math.round(food.fats || 0),
         image: food.image || '',
-        servingSize: typeof food.servingSize === 'number' ? String(food.servingSize) : food.servingSize,
+        servingSize,
+        servingSizeG: food.servingSizeG, // Add serving size in grams if available
         source: food.source
-      }
-      setSelectedFoods([...selectedFoods, formattedFood])
-      setServings({ ...servings, [formattedFood.name]: 1 })
+      };
+      setSelectedFoods([...selectedFoods, formattedFood]);
+      setServings({ ...servings, [formattedFood.name]: 1 });
     } else {
       // It's already in our app's format
-      setSelectedFoods([...selectedFoods, food as FoodItem])
-      setServings({ ...servings, [food.name]: 1 })
+      const existingFood = food as FoodItem;
+      setSelectedFoods([...selectedFoods, existingFood]);
+      setServings({ ...servings, [existingFood.name]: 1 });
     }
-    setQuery('')
-    setIsAdding(false)
+    setQuery('');
+    setIsAdding(false);
     setSearchResults([])
     setShowResults(false)
   }
@@ -234,125 +304,142 @@ export const QuickAddFood: React.FC = () => {
   const getTotalNutrients = () => {
     return selectedFoods.reduce(
       (acc, food) => {
-        const servingMultiplier = servings[food.name] || 1
+        const servingMultiplier = servings[food.name] || 1;
         return {
-          calories: acc.calories + food.calories * servingMultiplier,
-          protein: acc.protein + food.protein * servingMultiplier,
-          carbs: acc.carbs + food.carbs * servingMultiplier,
-          fats: acc.fats + food.fats * servingMultiplier,
-        }
+          calories: acc.calories + (food.calories || 0) * servingMultiplier,
+          protein: acc.protein + (food.protein || 0) * servingMultiplier,
+          carbs: acc.carbs + (food.carbs || 0) * servingMultiplier,
+          fats: acc.fats + (food.fats || 0) * servingMultiplier,
+        };
       },
       { calories: 0, protein: 0, carbs: 0, fats: 0 }
-    )
-  }
+    );
+  };
 
   // Add a single food from the new UI
   const handleAddSingleFood = async () => {
-    console.log('handleAddSingleFood called');
+    console.log('=== START handleAddSingleFood ===');
+    console.log('Selected food:', selectedFood);
+    console.log('Serving size:', servingSize, 'Type:', typeof servingSize);
+    console.log('Serving unit:', servingUnit);
+    
     if (!selectedFood) {
       console.error('No food selected');
       toast.error('Please select a food first');
       return;
     }
     
+    // Convert servingSize to a number if it's a string
+    const servingSizeNum = typeof servingSize === 'string' ? parseFloat(servingSize) : servingSize;
+    
+    if (isNaN(servingSizeNum) || servingSizeNum <= 0) {
+      console.error('Invalid serving size:', servingSize);
+      toast.error('Please enter a valid serving size');
+      return;
+    }
+    
     try {
       setIsAddingFood(true);
-      console.log('Setting isAddingFood to true');
       
-      // Get today's date in YYYY-MM-DD format
-      const today = new Date().toISOString().split('T')[0];
-      
-      // Format serving size text based on unit
-      let servingSizeText = `${servingSize} `;
+      // Format serving size text for display
+      let servingSizeText = `${servingSizeNum} `;
       if (servingUnit === 'serving') {
-        servingSizeText += `serving${servingSize !== 1 ? 's' : ''}`;
+        servingSizeText += `serving${servingSizeNum !== 1 ? 's' : ''}`;
       } else {
         servingSizeText += servingUnit;
       }
       
-      // Format the food log entry for Supabase
-      const notes = `Quick added with ${servingSizeText}`;
-      const foodLog: FoodLogEntry = {
-        log_date: today,
-        meal_type: 'snacks', // Always set to snacks for quick add
-        servings: servingSize,
+      // Prepare food log data
+      console.log('2. Preparing food log data...');
+      const today = new Date().toISOString().split('T')[0];
+      const now = new Date();
+      const hours = String(now.getHours()).padStart(2, '0');
+      const minutes = String(now.getMinutes()).padStart(2, '0');
+      const currentTime = `${hours}:${minutes}`;
+      
+      // Always use 'snacks' as the meal type for QuickAddFood
+      const mealType = 'snacks';
+      
+      const foodLogData: Omit<FoodLogEntry, 'id' | 'created_at' | 'user_id'> = {
+        food_name: selectedFood.name || 'Unknown Food',
+        meal_type: mealType,
+        calories: Math.round((selectedFood.calories || 0) * servingSizeNum),
+        protein: Math.round((selectedFood.protein || 0) * servingSizeNum),
+        carbs: Math.round((selectedFood.carbs || 0) * servingSizeNum),
+        fats: Math.round((selectedFood.fats || 0) * servingSizeNum),
+        servings: servingSizeNum,
         serving_size: servingSizeText,
-        calories: Math.round((selectedFood.calories || 0) * servingSize),
-        protein: Math.round((selectedFood.protein || 0) * servingSize),
-        carbs: Math.round((selectedFood.carbs || 0) * servingSize),
-        fats: Math.round((selectedFood.fats || 0) * servingSize),
-        food_name: selectedFood.name,
-        image_url: selectedFood.image || '',
-        log_time: new Date().toTimeString().substring(0, 5),
-        notes: notes,
-        food_item_id: null // Set to null for manually added items
+        notes: `Quick added with ${servingSizeText}`,
+        log_date: today,
+        log_time: currentTime,
+        food_item_id: null,
+        image_url: selectedFood.image || null
       };
       
-      console.log('Adding food log:', {
-        ...foodLog,
-        notes: notes.length > 50 ? notes.substring(0, 50) + '...' : notes
-      });
+      console.log('3. Food log data prepared:', foodLogData);
       
-      // Save to Supabase - explicitly pass supabase client to ensure it's used
-      const id = await addFoodLog(foodLog, supabase);
+      // Double-check session before proceeding
+      try {
+        const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+        if (sessionError || !session) {
+          console.error('Session check failed:', sessionError || 'No active session');
+          throw new Error('Your session has expired. Please refresh the page and try again.');
+        }
+        console.log('3.5. Session verified, user ID:', session.user?.id);
+      } catch (sessionError) {
+        console.error('Error verifying session:', sessionError);
+        throw new Error('Unable to verify your session. Please refresh the page and try again.');
+      }
+      
+      // Save to Supabase - pass the Supabase client
+      console.log('4. Calling addFoodLog with food log data...');
+      const id = await addFoodLog(supabase, foodLogData);
+      
       if (!id) {
-        console.error('Failed to add food log for:', selectedFood.name);
+        console.error('5. Failed to add food log - no ID returned');
         throw new Error(`Failed to add food log for: ${selectedFood.name}`);
       }
       
-      console.log('Successfully added food log with ID:', id);
+      console.log(`5. Successfully added food log with ID: ${id}`);
       toast.success(`Added ${selectedFood.name} to snacks!`);
       
       // Clear selection
+      console.log('6. Clearing form...');
       setSelectedFood(null);
       setServingSize(1);
       setServingUnit('serving');
       
-      // Dispatch event to update UI
-      dispatchFoodLogsUpdatedEvent();
+      // Dispatch a custom event to notify the macrotracker to refresh
+      console.log('7. Dispatching foodLogsUpdated event...');
+      const eventDetail = { 
+        mealType: 'snacks',
+        timestamp: new Date().toISOString()
+      };
       
-    } catch (error: any) {
+      // Dispatch the event on the window object to match the macrotracker's event listener
+      window.dispatchEvent(new CustomEvent('foodLogsUpdated', { detail: eventDetail }));
+      console.log('8. First event dispatched with detail:', eventDetail);
+      
+      // Also trigger a manual refresh after a short delay to ensure data consistency
+      setTimeout(() => {
+        console.log('9. Dispatching manual refresh event...');
+        const refreshDetail = { 
+          mealType: 'snacks',
+          timestamp: new Date().toISOString(),
+          source: 'manual-refresh'
+        };
+        // Dispatch on window to match the macrotracker's event listener
+        window.dispatchEvent(new CustomEvent('foodLogsUpdated', { detail: refreshDetail }));
+        console.log('10. Manual refresh event dispatched with detail:', refreshDetail);
+      }, 1000);
+    } catch (error) {
       console.error('Error adding food:', error);
-      toast.error(error.message || 'Failed to add food to snacks. Please try again.');
+      throw error;
     } finally {
       setIsAddingFood(false);
     }
   };
-  
-  // Helper function to dispatch the food logs updated event
-  const dispatchFoodLogsUpdatedEvent = () => {
-    console.log('Dispatching foodLogsUpdated event');
-    try {
-      const event = new CustomEvent('foodLogsUpdated', { 
-        detail: { 
-          mealType: 'snacks',
-          timestamp: new Date().toISOString()
-        } 
-      });
-      window.dispatchEvent(event);
-      console.log('First event dispatched successfully');
-      
-      // Also trigger a manual refresh after a short delay to ensure data consistency
-      setTimeout(() => {
-        console.log('Triggering manual refresh of food logs');
-        try {
-          window.dispatchEvent(new CustomEvent('foodLogsUpdated', { 
-            detail: { 
-              mealType: 'snacks',
-              timestamp: new Date().toISOString(),
-              source: 'manual-refresh'
-            } 
-          }));
-          console.log('Second event dispatched successfully');
-        } catch (error) {
-          console.error('Error dispatching second event:', error);
-        }
-      }, 1000);
-    } catch (error) {
-      console.error('Error dispatching event:', error);
-    }
-  };
-  
+
   // Legacy function for backward compatibility
   const handleLogFoods = async () => {
     console.log('Starting handleLogFoods with selected foods:', selectedFoods);
@@ -370,19 +457,19 @@ export const QuickAddFood: React.FC = () => {
         
         // Format the food log entry for Supabase
         const notes = `Quick added with ${foodServings} serving${foodServings !== 1 ? 's' : ''}`;
-        const foodLog: FoodLogEntry = {
+        const foodLog: Omit<FoodLogEntry, 'id' | 'created_at' | 'user_id'> = {
           log_date: today,
           meal_type: 'snacks', // Always set to snacks for quick add
           servings: foodServings,
           serving_size: `${foodServings} serving${foodServings !== 1 ? 's' : ''}`,
-          calories: Math.round(food.calories * foodServings),
-          protein: Math.round(food.protein * foodServings),
-          carbs: Math.round(food.carbs * foodServings),
-          fats: Math.round(food.fats * foodServings),
+          calories: Math.round((food.calories || 0) * foodServings),
+          protein: Math.round((food.protein || 0) * foodServings),
+          carbs: Math.round((food.carbs || 0) * foodServings),
+          fats: Math.round((food.fats || 0) * foodServings),
           food_name: food.name,
-          image_url: food.image || '',
+          image_url: food.image || null,
           log_time: new Date().toTimeString().substring(0, 5),
-          notes: notes, // Ensure notes is always defined
+          notes: notes,
           food_item_id: null // Set to null for manually added items
         };
         
@@ -391,9 +478,9 @@ export const QuickAddFood: React.FC = () => {
           notes: notes.length > 50 ? notes.substring(0, 50) + '...' : notes
         });
         
-        // Save to Supabase - explicitly pass supabase client to ensure it's used
+        // Save to Supabase - pass the Supabase client
         try {
-          const id = await addFoodLog(foodLog, supabase);
+          const id = await addFoodLog(supabase, foodLog);
           if (!id) {
             console.error('Failed to add food log for:', food.name);
             throw new Error(`Failed to add food log for: ${food.name}`);
@@ -422,10 +509,11 @@ export const QuickAddFood: React.FC = () => {
     } catch (error) {
       console.error('Error in handleLogFoods:', error);
       toast.error('Failed to add foods to snacks. Please try again.');
+      throw error; // Re-throw to allow error boundaries to catch it
     } finally {
       setLoading(false);
     }
-  }
+  };
 
   const totals = getTotalNutrients()
 
@@ -457,23 +545,29 @@ export const QuickAddFood: React.FC = () => {
           <>
             {/* Search Input */}
             <div className="relative mb-3">
-              <SearchIcon className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+              {!loading && (
+                <SearchIcon className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+              )}
               <input
                 type="text"
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
                 onFocus={() => query.trim() && setShowResults(true)}
                 placeholder="Search foods for snacks..."
-                className="w-full pl-10 pr-4 py-2 bg-[#252525] rounded-lg focus:outline-none focus:ring-1 focus:ring-[#4ADE80] text-white"
+                className={`w-full ${loading ? 'pl-10' : 'pl-10'} pr-10 py-2 bg-[#252525] rounded-lg focus:outline-none focus:ring-1 focus:ring-[#4ADE80] text-white`}
+                style={{ textIndent: loading ? '8px' : '0' }}
                 autoFocus
               />
-              {loading ? (
-                <Loader2Icon className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400 animate-spin" />
+              {loading && query.trim() ? (
+                <div className="absolute left-3 top-1/2 transform -translate-y-1/2">
+                  <Loader2Icon className="h-4 w-4 text-gray-400 animate-spin" />
+                </div>
               ) : null}
               {query && (
                 <button 
                   onClick={() => setQuery('')}
-                  className="absolute right-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400 hover:text-white"
+                  className="absolute right-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400 hover:text-white focus:outline-none"
+                  aria-label="Clear search"
                 >
                   <XIcon className="h-4 w-4" />
                 </button>
