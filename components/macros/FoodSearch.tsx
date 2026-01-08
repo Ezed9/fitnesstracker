@@ -76,9 +76,9 @@ const FoodSearch: React.FC<FoodSearchProps> = ({ onAddFood, defaultMealType = 'b
 
   const handleAddFood = async () => {
     if (!selectedFood) return
-    
+
     setIsAddingFood(true)
-    
+
     try {
       let multiplier = servingSize
       if (servingUnit === 'g') {
@@ -86,7 +86,7 @@ const FoodSearch: React.FC<FoodSearchProps> = ({ onAddFood, defaultMealType = 'b
       } else if (servingUnit === 'oz') {
         multiplier = (servingSize * 28.35) / 100
       }
-      
+
       // Format the serving size string with proper units
       let servingSizeStr = ''
       if (servingUnit === 'g') {
@@ -96,28 +96,29 @@ const FoodSearch: React.FC<FoodSearchProps> = ({ onAddFood, defaultMealType = 'b
       } else {
         servingSizeStr = `${servingSize} serving${servingSize !== 1 ? 's' : ''}`
       }
-      
+
       // Validate meal type before using it
       const validMealTypes: MealType[] = ['breakfast', 'lunch', 'dinner', 'snacks']
       let mealType = selectedMealType
-      
+
       if (!validMealTypes.includes(mealType)) {
         console.warn(`Invalid meal type: ${mealType}, defaulting to 'snacks'`)
         mealType = 'snacks'
       }
-      
+
       console.log('Selected meal type before adding food:', mealType)
-      
+
       const formattedFood = {
         ...formatFoodData(selectedFood),
         calories: Math.round((selectedFood.calories || 0) * multiplier),
         protein: Math.round((selectedFood.protein || 0) * multiplier),
         carbs: Math.round((selectedFood.carbs || 0) * multiplier),
         fats: Math.round((selectedFood.fats || 0) * multiplier),
+        fat: Math.round((selectedFood.fats || 0) * multiplier),
         mealType: mealType, // Use validated meal type
         servingSize: servingSizeStr
       }
-      
+
       // Log the formatted food to help with debugging
       console.log('Adding food with details:', {
         name: formattedFood.name,
@@ -125,7 +126,7 @@ const FoodSearch: React.FC<FoodSearchProps> = ({ onAddFood, defaultMealType = 'b
         servingSize: servingSizeStr,
         calories: formattedFood.calories
       })
-      
+
       // Save the search term to recent searches if it's not already there
       if (query.trim() && !recentSearches.includes(query.trim())) {
         // Keep only the most recent 5 searches
@@ -133,9 +134,9 @@ const FoodSearch: React.FC<FoodSearchProps> = ({ onAddFood, defaultMealType = 'b
         setRecentSearches(updatedSearches)
         // Could also save to localStorage here for persistence
       }
-      
+
       await onAddFood(formattedFood)
-      
+
       setSelectedFood(null)
       setServingSize(1)
       setServingUnit('serving')
@@ -146,11 +147,11 @@ const FoodSearch: React.FC<FoodSearchProps> = ({ onAddFood, defaultMealType = 'b
       setIsAddingFood(false)
     }
   }
-  
+
   const incrementServing = () => {
     setServingSize(prev => Math.min(prev + (servingUnit === 'serving' ? 1 : 5), 1000))
   }
-  
+
   const decrementServing = () => {
     setServingSize(prev => Math.max(prev - (servingUnit === 'serving' ? 1 : 5), 0.1))
   }
@@ -166,9 +167,9 @@ const FoodSearch: React.FC<FoodSearchProps> = ({ onAddFood, defaultMealType = 'b
   // Quick Add function to add custom food items directly
   const handleQuickAdd = async () => {
     if (!query.trim()) return;
-    
+
     setIsAddingFood(true);
-    
+
     try {
       // Create a custom food item based on the query
       const customFood: UnifiedFoodItem = {
@@ -181,11 +182,11 @@ const FoodSearch: React.FC<FoodSearchProps> = ({ onAddFood, defaultMealType = 'b
         servingSize: '1 serving',
         source: 'usda' // Using 'usda' as the source type since 'custom' is not a valid source type
       };
-      
+
       // Set as selected food to allow user to customize nutrition values
       setSelectedFood(customFood);
       setShowResults(false);
-      
+
       // Save to recent searches
       if (!recentSearches.includes(query.trim())) {
         const updatedSearches = [query.trim(), ...recentSearches].slice(0, 5);
@@ -197,7 +198,7 @@ const FoodSearch: React.FC<FoodSearchProps> = ({ onAddFood, defaultMealType = 'b
       setIsAddingFood(false);
     }
   }
-  
+
   return (
     <div className="mt-4 relative" ref={searchRef}>
       {!selectedFood ? (
@@ -236,7 +237,7 @@ const FoodSearch: React.FC<FoodSearchProps> = ({ onAddFood, defaultMealType = 'b
               <Loader2Icon className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400 animate-spin" />
             ) : null}
             {query && (
-              <button 
+              <button
                 onClick={() => setQuery('')}
                 className="absolute right-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400 hover:text-white"
               >
@@ -277,9 +278,9 @@ const FoodSearch: React.FC<FoodSearchProps> = ({ onAddFood, defaultMealType = 'b
                   className="px-4 py-2 hover:bg-[#2A2A2A] cursor-pointer flex items-center"
                 >
                   {food.image && (
-                    <img 
-                      src={food.image} 
-                      alt={food.name} 
+                    <img
+                      src={food.image}
+                      alt={food.name}
                       className="w-10 h-10 object-cover rounded-md mr-3"
                     />
                   )}
@@ -300,7 +301,7 @@ const FoodSearch: React.FC<FoodSearchProps> = ({ onAddFood, defaultMealType = 'b
           {showResults && query && results.length === 0 && !loading && (
             <div className="mt-2 bg-[#252525] rounded-lg p-4 text-center">
               <p className="text-gray-400">No foods found. Try a different search term.</p>
-              <button 
+              <button
                 onClick={handleQuickAdd}
                 className="mt-2 bg-[#4ADE80] hover:bg-green-500 text-black text-sm font-medium py-1 px-3 rounded-lg"
               >
@@ -316,9 +317,9 @@ const FoodSearch: React.FC<FoodSearchProps> = ({ onAddFood, defaultMealType = 'b
           <div className="flex items-start mb-4">
             <div className="flex-grow-0 flex-shrink-0 mr-3">
               {selectedFood.image ? (
-                <img 
-                  src={selectedFood.image} 
-                  alt={selectedFood.name} 
+                <img
+                  src={selectedFood.image}
+                  alt={selectedFood.name}
                   className="w-16 h-16 object-cover rounded-md"
                 />
               ) : (
@@ -336,14 +337,14 @@ const FoodSearch: React.FC<FoodSearchProps> = ({ onAddFood, defaultMealType = 'b
                 </span>
               </div>
             </div>
-            <button 
+            <button
               onClick={() => setSelectedFood(null)}
               className="text-gray-400 hover:text-white"
             >
               <XIcon className="w-5 h-5" />
             </button>
           </div>
-          
+
           {/* Nutrition info */}
           <div className="mb-4">
             <div className="text-sm text-gray-400 mb-1">Nutrition per serving:</div>
@@ -354,7 +355,7 @@ const FoodSearch: React.FC<FoodSearchProps> = ({ onAddFood, defaultMealType = 'b
               <div className="text-sm">Fat: {Math.round(selectedFood.fats || 0)}g</div>
             </div>
           </div>
-          
+
           {/* Meal type selection */}
           <div className="mb-4">
             <label className="block text-sm text-gray-400 mb-1">Add to meal:</label>
@@ -371,27 +372,27 @@ const FoodSearch: React.FC<FoodSearchProps> = ({ onAddFood, defaultMealType = 'b
               ))}
             </div>
           </div>
-          
+
           {/* Serving controls */}
           <div className="grid grid-cols-2 gap-4 mb-4">
             <div>
               <label className="block text-sm text-gray-400 mb-1">Amount</label>
               <div className="flex items-center">
-                <button 
+                <button
                   onClick={decrementServing}
                   className="bg-[#252525] rounded-l-lg p-2 hover:bg-[#2A2A2A]"
                 >
                   <MinusIcon className="w-4 h-4" />
                 </button>
-                <input 
-                  type="number" 
+                <input
+                  type="number"
                   value={servingSize}
                   onChange={(e) => setServingSize(parseFloat(e.target.value) || 1)}
                   className="w-full bg-[#252525] py-2 px-3 text-center focus:outline-none"
                   min="0.1"
                   step={servingUnit === 'serving' ? 1 : 5}
                 />
-                <button 
+                <button
                   onClick={incrementServing}
                   className="bg-[#252525] rounded-r-lg p-2 hover:bg-[#2A2A2A]"
                 >
@@ -412,13 +413,13 @@ const FoodSearch: React.FC<FoodSearchProps> = ({ onAddFood, defaultMealType = 'b
               </select>
             </div>
           </div>
-          
+
           {/* Add button */}
           <div className="flex justify-between items-center">
             <div className="text-sm text-gray-400">
               Total calories: <span className="text-white font-medium">{Math.round((selectedFood.calories || 0) * servingSize)}</span>
             </div>
-            <button 
+            <button
               onClick={handleAddFood}
               disabled={isAddingFood}
               className="w-full sm:w-auto bg-[#4ADE80] hover:bg-green-500 text-black font-medium py-2 px-4 rounded-lg flex items-center justify-center"
